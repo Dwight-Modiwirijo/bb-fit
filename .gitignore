@@ -18,3 +18,4 @@ build/
 
 # Checkpoints staan in ~/checkpoints (apart gehouden)
 checkpoints/
+*PROMPT.md

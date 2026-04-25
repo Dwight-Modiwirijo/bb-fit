@@ -369,7 +369,7 @@ def main() -> None:
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    class_weights = torch.tensor([2.0, 1.0, 2.0], dtype=torch.float32, device=device)
+    class_weights = torch.tensor([1.5, 1.0, 1.5], dtype=torch.float32, device=device)
     ce_action = nn.CrossEntropyLoss(weight=class_weights)
     ce_trade_side = nn.CrossEntropyLoss(weight=class_weights)
     regression_loss = nn.SmoothL1Loss(beta=1.0)
