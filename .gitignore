@@ -1,0 +1,20 @@
+# Data — te groot voor GitHub (tot 30 GB)
+*.csv
+*.bak
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Logs en tijdelijke bestanden
+*.log
+*.deb
+
+# Checkpoints staan in ~/checkpoints (apart gehouden)
+checkpoints/

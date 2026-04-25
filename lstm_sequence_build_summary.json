@@ -1,0 +1,87 @@
+{
+  "input": "lstm_merged.csv",
+  "sequenceLength": 64,
+  "featureColumns": [
+    "canonicalFee",
+    "intervalMinutes",
+    "observedIntervalMinutes",
+    "signalOpen",
+    "signalHigh",
+    "signalLow",
+    "signalClose",
+    "executionOpen",
+    "executionHigh",
+    "executionLow",
+    "executionClose",
+    "executionPrice",
+    "tradeActionRaw",
+    "tradeSide",
+    "lastTrade",
+    "actionTaken",
+    "tradingCapital",
+    "assetsHeld",
+    "inPosition",
+    "entryPrice",
+    "positionValue",
+    "netEquity",
+    "buyCount",
+    "sellCount",
+    "wins",
+    "losses",
+    "totalTradedNotional",
+    "feePerSide",
+    "cost",
+    "runGroup_code",
+    "sourceFile_code",
+    "interval_code",
+    "splitHint_code"
+  ],
+  "categoricalMappings": {
+    "runGroup": {
+      "FiveMinutes_5m_fee_0.0018": 0,
+      "FiveMinutes_5m_fee_0.004": 1
+    },
+    "sourceFile": {
+      "crypteum-0.0018.log": 0,
+      "crypteum-0.004.log": 1
+    },
+    "interval": {
+      "FiveMinutes": 0
+    },
+    "splitHint": {
+      "test": 0,
+      "train": 1,
+      "validation": 2
+    }
+  },
+  "usedSplitHint": true,
+  "rowCount": 2749460,
+  "runCount": 2,
+  "outputCounts": {
+    "train": 1924495,
+    "validation": 412291,
+    "test": 412290
+  },
+  "runStats": [
+    {
+      "runId": "XBTUSD_FiveMinutes_0.0018_20260417001410_3d4eada7abfd49e19f76c7c3e517791e",
+      "rows": 1494696,
+      "usedSplitHint": true,
+      "windows": {
+        "train": 1046224,
+        "validation": 224140,
+        "test": 224140
+      }
+    },
+    {
+      "runId": "XBTUSD_FiveMinutes_0.004_20260417005533_08d885ca6ed44aa6ad234f112bc961d7",
+      "rows": 1254764,
+      "usedSplitHint": true,
+      "windows": {
+        "train": 878271,
+        "validation": 188151,
+        "test": 188150
+      }
+    }
+  ]
+}
