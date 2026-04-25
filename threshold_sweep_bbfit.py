@@ -318,8 +318,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--checkpoint", required=True)
     p.add_argument("--validation-csv", required=True)
     p.add_argument("--train-csv", required=True, help="Used only for column discovery")
-    p.add_argument("--hidden-size", type=int, default=256)
-    p.add_argument("--num-layers", type=int, default=2)
+    p.add_argument("--hidden-size", type=int, default=512)
+    p.add_argument("--num-layers", type=int, default=3)
     p.add_argument("--dropout", type=float, default=0.1)
     p.add_argument("--batch-size", type=int, default=512)
     p.add_argument("--num-workers", type=int, default=4)
@@ -370,7 +370,11 @@ def main() -> None:
     ).to(device)
 
     payload = torch.load(checkpoint_path, map_location=device)
-    model.load_state_dict(payload["model_state_dict"])
+    missing, unexpected = model.load_state_dict(payload["model_state_dict"], strict=False)
+    if unexpected:
+        print(f"Ignored extra keys in checkpoint: {unexpected}", flush=True)
+    if missing:
+        print(f"WARNING missing keys: {missing}", flush=True)
     print(f"Loaded checkpoint: {checkpoint_path}", flush=True)
     print_vram()
 
