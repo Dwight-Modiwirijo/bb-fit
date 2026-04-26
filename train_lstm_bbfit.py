@@ -93,16 +93,23 @@ class SequenceCsvIterableDataset(IterableDataset):
         feature_columns: Sequence[str],
         sequence_length: int,
         per_step_features: int,
+        norm_mean: Optional[torch.Tensor] = None,
+        norm_std: Optional[torch.Tensor] = None,
     ) -> None:
         super().__init__()
         self.spec = spec
         self.feature_columns = list(feature_columns)
         self.sequence_length = sequence_length
         self.per_step_features = per_step_features
+        self.norm_mean = norm_mean  # shape [n_flat_features]
+        self.norm_std = norm_std
 
     def _parse_row(self, row: Dict[str, str]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         features = [float(row[c]) for c in self.feature_columns]
-        x = torch.tensor(features, dtype=torch.float32).view(self.sequence_length, self.per_step_features)
+        x = torch.tensor(features, dtype=torch.float32)
+        if self.norm_mean is not None and self.norm_std is not None:
+            x = (x - self.norm_mean) / self.norm_std
+        x = x.view(self.sequence_length, self.per_step_features)
 
         action_taken = int(float(row["target_actionTaken"]))
         trade_side = int(float(row["target_tradeSide"]))
@@ -192,12 +199,16 @@ def build_dataloader(
     per_step_features: int,
     batch_size: int,
     num_workers: int,
+    norm_mean: Optional[torch.Tensor] = None,
+    norm_std: Optional[torch.Tensor] = None,
 ) -> DataLoader:
     dataset = SequenceCsvIterableDataset(
         spec=spec,
         feature_columns=feature_columns,
         sequence_length=sequence_length,
         per_step_features=per_step_features,
+        norm_mean=norm_mean,
+        norm_std=norm_std,
     )
 
     return DataLoader(
@@ -321,6 +332,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--test-limit-rows", type=int, default=None)
     parser.add_argument("--eval-max-batches", type=int, default=None)
     parser.add_argument("--resume-checkpoint", default=None)
+    parser.add_argument("--normalization-stats", default=None,
+                        help="Pad naar normalization_stats.json (mean/std per feature).")
     parser.add_argument("--reset-optimizer", action="store_true", default=False,
                         help="Do not load optimizer state from checkpoint (safe when changing LR)")
     parser.add_argument("--focal-gamma", type=float, default=2.0,
@@ -353,29 +366,30 @@ def main() -> None:
         f"action_classes={action_classes}, trade_side_classes={trade_side_classes}"
     )
 
+    norm_mean = norm_std = None
+    if args.normalization_stats:
+        import json as _json
+        stats = _json.loads(Path(args.normalization_stats).read_text())
+        col_to_mean = dict(zip(stats["feature_columns"], stats["mean"]))
+        col_to_std  = dict(zip(stats["feature_columns"], stats["std"]))
+        norm_mean = torch.tensor([col_to_mean.get(c, 0.0) for c in feature_columns], dtype=torch.float32)
+        norm_std  = torch.tensor([col_to_std.get(c, 1.0)  for c in feature_columns], dtype=torch.float32)
+        print(f"Normalisatie geladen: {args.normalization_stats}")
+
     train_loader = build_dataloader(
         DatasetSpec(train_csv, args.train_limit_rows),
-        feature_columns,
-        sequence_length,
-        per_step_features,
-        args.batch_size,
-        args.num_workers,
+        feature_columns, sequence_length, per_step_features,
+        args.batch_size, args.num_workers, norm_mean, norm_std,
     )
     validation_loader = build_dataloader(
         DatasetSpec(validation_csv, args.validation_limit_rows),
-        feature_columns,
-        sequence_length,
-        per_step_features,
-        args.batch_size,
-        args.num_workers,
+        feature_columns, sequence_length, per_step_features,
+        args.batch_size, args.num_workers, norm_mean, norm_std,
     )
     test_loader = build_dataloader(
         DatasetSpec(test_csv, args.test_limit_rows),
-        feature_columns,
-        sequence_length,
-        per_step_features,
-        args.batch_size,
-        args.num_workers,
+        feature_columns, sequence_length, per_step_features,
+        args.batch_size, args.num_workers, norm_mean, norm_std,
     )
 
     model = MultiHeadLstm(
