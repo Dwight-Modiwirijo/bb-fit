@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.utils.data import DataLoader, IterableDataset
 
 
@@ -171,6 +172,19 @@ class MultiHeadLstm(nn.Module):
         }
 
 
+class FocalLoss(nn.Module):
+    """Focal loss for class imbalance: down-weights easy majority examples."""
+    def __init__(self, gamma: float = 2.0, weight: Optional[torch.Tensor] = None) -> None:
+        super().__init__()
+        self.gamma = gamma
+        self.weight = weight
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        ce = F.cross_entropy(logits, targets, weight=self.weight, reduction="none")
+        pt = torch.exp(-ce)
+        return ((1 - pt) ** self.gamma * ce).mean()
+
+
 def build_dataloader(
     spec: DatasetSpec,
     feature_columns: Sequence[str],
@@ -307,6 +321,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--test-limit-rows", type=int, default=None)
     parser.add_argument("--eval-max-batches", type=int, default=None)
     parser.add_argument("--resume-checkpoint", default=None)
+    parser.add_argument("--reset-optimizer", action="store_true", default=False,
+                        help="Do not load optimizer state from checkpoint (safe when changing LR)")
+    parser.add_argument("--focal-gamma", type=float, default=2.0,
+                        help="Focal loss gamma. 0 = standard cross-entropy.")
+    parser.add_argument("--class-weights", type=float, nargs=3, default=[2.0, 1.0, 2.0],
+                        metavar=("W0", "W1", "W2"))
     return parser.parse_args()
 
 
@@ -369,9 +389,10 @@ def main() -> None:
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
-    class_weights = torch.tensor([1.5, 1.0, 1.5], dtype=torch.float32, device=device)
-    ce_action = nn.CrossEntropyLoss(weight=class_weights)
-    ce_trade_side = nn.CrossEntropyLoss(weight=class_weights)
+    class_weights = torch.tensor(args.class_weights, dtype=torch.float32, device=device)
+    print(f"Loss: FocalLoss(gamma={args.focal_gamma}), class_weights={args.class_weights}")
+    ce_action = FocalLoss(gamma=args.focal_gamma, weight=class_weights)
+    ce_trade_side = FocalLoss(gamma=args.focal_gamma, weight=class_weights)
     regression_loss = nn.SmoothL1Loss(beta=1.0)
 
     global_step = 0
@@ -381,7 +402,10 @@ def main() -> None:
         resume_path = Path(args.resume_checkpoint)
         payload = torch.load(resume_path, map_location=device)
         model.load_state_dict(payload["model_state_dict"])
-        optimizer.load_state_dict(payload["optimizer_state_dict"])
+        if not args.reset_optimizer:
+            optimizer.load_state_dict(payload["optimizer_state_dict"])
+        else:
+            print("Optimizer state reset (--reset-optimizer)")
         global_step = int(payload.get("global_step", 0))
         start_epoch = int(payload.get("epoch", 0)) + 1
         print(f"Resumed from: {resume_path}")
