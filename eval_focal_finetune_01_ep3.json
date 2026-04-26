@@ -1,0 +1,397 @@
+{
+  "checkpoint": "/workspace/checkpoints/lstm_bbfit/focal_finetune_01/checkpoint_epoch03_step0004140.pt",
+  "majority_baseline": {
+    "action_class": 1,
+    "trade_side_class": 1,
+    "validation": {
+      "action": {
+        "accuracy": 0.9767615591899896,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_precision": 0.32558718639666323,
+        "macro_recall": 0.3333333333333333,
+        "macro_f1": 0.3294147287344842,
+        "per_class": [
+          {
+            "class": 0,
+            "support": 4145,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          {
+            "class": 1,
+            "support": 402710,
+            "precision": 0.9767615591899896,
+            "recall": 1.0,
+            "f1": 0.9882441862034526
+          },
+          {
+            "class": 2,
+            "support": 5436,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            4145,
+            0
+          ],
+          [
+            0,
+            402710,
+            0
+          ],
+          [
+            0,
+            5436,
+            0
+          ]
+        ]
+      },
+      "trade_side": {
+        "accuracy": 0.9767615591899896,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_precision": 0.32558718639666323,
+        "macro_recall": 0.3333333333333333,
+        "macro_f1": 0.3294147287344842,
+        "per_class": [
+          {
+            "class": 0,
+            "support": 4145,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          {
+            "class": 1,
+            "support": 402710,
+            "precision": 0.9767615591899896,
+            "recall": 1.0,
+            "f1": 0.9882441862034526
+          },
+          {
+            "class": 2,
+            "support": 5436,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            4145,
+            0
+          ],
+          [
+            0,
+            402710,
+            0
+          ],
+          [
+            0,
+            5436,
+            0
+          ]
+        ]
+      }
+    },
+    "test": {
+      "action": {
+        "accuracy": 0.9811904242159645,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_precision": 0.3270634747386548,
+        "macro_recall": 0.3333333333333333,
+        "macro_f1": 0.3301686407737276,
+        "per_class": [
+          {
+            "class": 0,
+            "support": 3207,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          {
+            "class": 1,
+            "support": 404535,
+            "precision": 0.9811904242159645,
+            "recall": 1.0,
+            "f1": 0.9905059223211827
+          },
+          {
+            "class": 2,
+            "support": 4548,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            3207,
+            0
+          ],
+          [
+            0,
+            404535,
+            0
+          ],
+          [
+            0,
+            4548,
+            0
+          ]
+        ]
+      },
+      "trade_side": {
+        "accuracy": 0.9811904242159645,
+        "balanced_accuracy": 0.3333333333333333,
+        "macro_precision": 0.3270634747386548,
+        "macro_recall": 0.3333333333333333,
+        "macro_f1": 0.3301686407737276,
+        "per_class": [
+          {
+            "class": 0,
+            "support": 3207,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          {
+            "class": 1,
+            "support": 404535,
+            "precision": 0.9811904242159645,
+            "recall": 1.0,
+            "f1": 0.9905059223211827
+          },
+          {
+            "class": 2,
+            "support": 4548,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          }
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            3207,
+            0
+          ],
+          [
+            0,
+            404535,
+            0
+          ],
+          [
+            0,
+            4548,
+            0
+          ]
+        ]
+      }
+    }
+  },
+  "model": {
+    "validation": {
+      "loss": 0.580214745226768,
+      "net_equity_mse": 328.8646899969271,
+      "action": {
+        "accuracy": 0.9766936459927575,
+        "balanced_accuracy": 0.333673108253028,
+        "macro_precision": 0.3755912862147899,
+        "macro_recall": 0.333673108253028,
+        "macro_f1": 0.33013354410027446,
+        "per_class": [
+          {
+            "class": 0,
+            "support": 4145,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          {
+            "class": 1,
+            "support": 402710,
+            "precision": 0.9767738586443696,
+            "recall": 0.999915571999702,
+            "f1": 0.9882092517310644
+          },
+          {
+            "class": 2,
+            "support": 5436,
+            "precision": 0.15,
+            "recall": 0.0011037527593818985,
+            "f1": 0.002191380569758948
+          }
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            4145,
+            0
+          ],
+          [
+            0,
+            402676,
+            34
+          ],
+          [
+            0,
+            5430,
+            6
+          ]
+        ]
+      },
+      "trade_side": {
+        "accuracy": 0.9767009224067467,
+        "balanced_accuracy": 0.3337360833017577,
+        "macro_precision": 0.3854211733906678,
+        "macro_recall": 0.3337360833017577,
+        "macro_f1": 0.33025667499257244,
+        "per_class": [
+          {
+            "class": 0,
+            "support": 4145,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          {
+            "class": 1,
+            "support": 402710,
+            "precision": 0.9767763406848239,
+            "recall": 0.9999205383526607,
+            "f1": 0.9882129473521465
+          },
+          {
+            "class": 2,
+            "support": 5436,
+            "precision": 0.1794871794871795,
+            "recall": 0.0012877115526122149,
+            "f1": 0.0025570776255707767
+          }
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            4145,
+            0
+          ],
+          [
+            0,
+            402678,
+            32
+          ],
+          [
+            0,
+            5429,
+            7
+          ]
+        ]
+      }
+    },
+    "test": {
+      "loss": 0.5650640020497365,
+      "net_equity_mse": 414.8312765536922,
+      "action": {
+        "accuracy": 0.9811637439666254,
+        "balanced_accuracy": 0.33346920602532465,
+        "macro_precision": 0.37150930810745253,
+        "macro_recall": 0.33346920602532465,
+        "macro_f1": 0.33045629906928037,
+        "per_class": [
+          {
+            "class": 0,
+            "support": 3207,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          {
+            "class": 1,
+            "support": 404535,
+            "precision": 0.9811945909890243,
+            "recall": 0.9999678643380672,
+            "f1": 0.9904922809466093
+          },
+          {
+            "class": 2,
+            "support": 4548,
+            "precision": 0.13333333333333333,
+            "recall": 0.00043975373790677223,
+            "f1": 0.0008766162612316459
+          }
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            3207,
+            0
+          ],
+          [
+            0,
+            404522,
+            13
+          ],
+          [
+            0,
+            4546,
+            2
+          ]
+        ]
+      },
+      "trade_side": {
+        "accuracy": 0.9811758713526887,
+        "balanced_accuracy": 0.33354579428030223,
+        "macro_precision": 0.41039905112569675,
+        "macro_recall": 0.33354579428030223,
+        "macro_f1": 0.3306047422308282,
+        "per_class": [
+          {
+            "class": 0,
+            "support": 3207,
+            "precision": 0.0,
+            "recall": 0.0,
+            "f1": 0.0
+          },
+          {
+            "class": 1,
+            "support": 404535,
+            "precision": 0.9811971533770902,
+            "recall": 0.9999777522340465,
+            "f1": 0.9904984372188004
+          },
+          {
+            "class": 2,
+            "support": 4548,
+            "precision": 0.25,
+            "recall": 0.0006596306068601583,
+            "f1": 0.0013157894736842105
+          }
+        ],
+        "confusion_matrix": [
+          [
+            0,
+            3207,
+            0
+          ],
+          [
+            0,
+            404526,
+            9
+          ],
+          [
+            0,
+            4545,
+            3
+          ]
+        ]
+      }
+    }
+  }
+}
