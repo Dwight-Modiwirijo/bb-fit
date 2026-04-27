@@ -41,6 +41,9 @@ NUM_CLASSES = 3
 MINORITY_CLASSES = {0, 2}
 MAJORITY_CLASS = 1
 
+_NORM_MEAN: Optional[torch.Tensor] = None
+_NORM_STD: Optional[torch.Tensor] = None
+
 
 # ---------------------------------------------------------------------------
 # Dataset
@@ -76,9 +79,10 @@ class SequenceCsvIterableDataset(IterableDataset):
                     continue
 
                 features = [float(row[c]) for c in self.feature_columns]
-                x = torch.tensor(features, dtype=torch.float32).view(
-                    self.sequence_length, self.per_step_features
-                )
+                x = torch.tensor(features, dtype=torch.float32)
+                if _NORM_MEAN is not None and _NORM_STD is not None:
+                    x = (x - _NORM_MEAN) / _NORM_STD
+                x = x.view(self.sequence_length, self.per_step_features)
                 y = {
                     "action_taken": torch.tensor(int(float(row["target_actionTaken"])), dtype=torch.long),
                     "trade_side": torch.tensor(int(float(row["target_tradeSide"])), dtype=torch.long),
@@ -328,10 +332,14 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--threshold-max", type=float, default=0.95)
     p.add_argument("--threshold-step", type=float, default=0.05)
     p.add_argument("--output-json", default=None)
+    p.add_argument("--normalization-stats", default=None,
+                   help="Path to normalization_stats.json for z-score normalization")
     return p.parse_args()
 
 
 def main() -> None:
+    global _NORM_MEAN, _NORM_STD
+
     args = parse_args()
 
     if not torch.cuda.is_available():
@@ -346,6 +354,14 @@ def main() -> None:
 
     _, feature_columns = discover_columns(train_csv)
     seq_len, per_step = infer_sequence_shape(feature_columns)
+
+    if args.normalization_stats:
+        stats = json.loads(Path(args.normalization_stats).read_text())
+        col_to_mean = dict(zip(stats["feature_columns"], stats["mean"]))
+        col_to_std = dict(zip(stats["feature_columns"], stats["std"]))
+        _NORM_MEAN = torch.tensor([col_to_mean.get(c, 0.0) for c in feature_columns], dtype=torch.float32)
+        _NORM_STD = torch.tensor([col_to_std.get(c, 1.0) for c in feature_columns], dtype=torch.float32)
+        print(f"Normalization stats loaded: {len(feature_columns)} features", flush=True)
     print(f"sequence_length={seq_len}  per_step_features={per_step}", flush=True)
 
     dataset = SequenceCsvIterableDataset(
