@@ -44,16 +44,7 @@ orchestrator/**/bin/
 orchestrator/**/*.user
 dotnet-install.sh
 
-# Model binaries (groot bestand, niet in git)
+# Model binaries — standaard niet in git
 *.onnx
-EOFcd /home/dwyte/bb-fit
-cat >> .gitignore << 'EOF'
-
-# Orchestrator
-orchestrator/**/obj/
-orchestrator/**/bin/
-orchestrator/**/*.user
-dotnet-install.sh
-
-# Model binaries (groot bestand, niet in git)
-*.onnx
+# Uitzondering: het getrainde productiemodel wél tracken (21 MB, < GitHub-limiet)
+!bbfit.onnx
