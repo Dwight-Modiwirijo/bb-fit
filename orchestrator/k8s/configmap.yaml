@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: bbfit-config
+  namespace: bbfit
+data:
+  appsettings.Production.json: |
+    {
+      "BbFit": {
+        "ModelPath": "/app/bbfit.onnx",
+        "SequenceLength": 64,
+        "InputSize": 33
+      },
+      "Kraken": {
+        "TradingPair": "BTC/EUR",
+        "OhlcIntervalMinutes": 5,
+        "MaxPositionSize": 0.001,
+        "StopLossPct": 0.02,
+        "InitialCapital": 1000.0
+      }
+    }

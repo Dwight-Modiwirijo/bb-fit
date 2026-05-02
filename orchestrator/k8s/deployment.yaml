@@ -1,0 +1,81 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bbfit-orchestrator
+  namespace: bbfit
+  labels:
+    app: bbfit-orchestrator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bbfit-orchestrator
+  strategy:
+    # Slechts één instantie tegelijk actief — voorkomt dubbele orders
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: bbfit-orchestrator
+    spec:
+      # DGX Spark is ARM64
+      nodeSelector:
+        kubernetes.io/arch: arm64
+
+      containers:
+        - name: orchestrator
+          image: ghcr.io/dwight-modiwirijo/bb-fit/bbfit-orchestrator:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+
+          env:
+            - name: ASPNETCORE_ENVIRONMENT
+              value: Production
+            - name: Kraken__ApiKey
+              valueFrom:
+                secretKeyRef:
+                  name: bbfit-kraken
+                  key: ApiKey
+            - name: Kraken__ApiSecret
+              valueFrom:
+                secretKeyRef:
+                  name: bbfit-kraken
+                  key: ApiSecret
+
+          volumeMounts:
+            - name: app-config
+              mountPath: /app/appsettings.Production.json
+              subPath: appsettings.Production.json
+
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+      volumes:
+        - name: app-config
+          configMap:
+            name: bbfit-config
+
+      imagePullSecrets:
+        - name: ghcr-credentials

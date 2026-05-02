@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bbfit-orchestrator
+  namespace: bbfit
+spec:
+  selector:
+    app: bbfit-orchestrator
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  # ClusterIP: alleen intern bereikbaar — SignalR fallback verbindt via cluster DNS.
+  # Verander naar LoadBalancer als je externe toegang nodig hebt.
+  type: ClusterIP
