@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Blokkeert commits met echte Kraken credentials in appsettings-bestanden.
+
+FILES=$(git diff --cached --name-only | grep -E "appsettings.*\.json$")
+
+if [ -z "$FILES" ]; then
+  exit 0
+fi
+
+for FILE in $FILES; do
+  if grep -qE '"(ApiKey|ApiSecret)"\s*:\s*".+?"' "$FILE"; then
+    echo ""
+    echo "  GEBLOKKEERD: mogelijke Kraken credentials gevonden in $FILE"
+    echo "  Verwijder de sleutels en gebruik kubectl create secret."
+    echo ""
+    exit 1
+  fi
+done
+
+exit 0
