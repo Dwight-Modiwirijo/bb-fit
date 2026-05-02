@@ -6,6 +6,8 @@ on:
     paths:
       - 'orchestrator/**'
       - '.github/workflows/orchestrator-ci.yml'
+      - 'bbfit.onnx'
+      - 'bbfit.meta.json'
   pull_request:
     branches: [main]
     paths:
