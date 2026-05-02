@@ -19,3 +19,21 @@ build/
 # Checkpoints staan in ~/checkpoints (apart gehouden)
 checkpoints/
 *PROMPT.md
+sweep_indicators_ep2s400.json
+sweep_indicators_ep6s2328.json
+sweep_indicators_ft_ep10_TEST.json
+sweep_indicators_ft_ep10.json
+eval_norm_focal_01_ep5s1800.json
+eval_indicators_warmup_step0000400.json
+eval_balanced_ft_step0000400.json
+eval_balanced_ft_step0000668.json
+eval_balanced_ft_step0001140.json
+eval_balanced_ft_step0001612.json
+eval_balanced_ft_step0002556.json
+eval_indicators_finetune_01.json
+eval_indicators_warmup_01_ep6.json
+eval_indicators_warmup_step0000200.json
+eval_indicators_warmup_step0000388.json
+sequences_indicators/normalization_stats.json
+sequences_indicators_v2/lstm_sequence_build_summary.json
+sequences_indicators_v3/lstm_sequence_build_summary.json

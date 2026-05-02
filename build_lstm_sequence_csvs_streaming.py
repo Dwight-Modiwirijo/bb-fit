@@ -49,6 +49,10 @@ DEFAULT_NUMERIC_FEATURES = [
     "totalTradedNotional",
     "feePerSide",
     "cost",
+    "ind_ema55_ratio",
+    "ind_ema233_ratio",
+    "ind_ema_trend",
+    "ind_choppiness14",
 ]
 
 DEFAULT_CATEGORICAL_FEATURES = [
@@ -86,6 +90,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--train-ratio", type=float, default=0.70, help="Train split ratio when splitHint is absent")
     parser.add_argument("--validation-ratio", type=float, default=0.15, help="Validation split ratio when splitHint is absent")
     parser.add_argument("--test-ratio", type=float, default=0.15, help="Test split ratio when splitHint is absent")
+    parser.add_argument("--ignore-split-hint", action="store_true", default=False,
+                        help="Ignore splitHint column and use proportional train/val/test split per run")
     return parser
 
 
@@ -320,7 +326,7 @@ def main() -> None:
     validate_feature_columns(df, feature_columns)
 
     header = build_header(args.sequence_length, feature_columns)
-    use_split_hint = "splitHint" in df.columns and df["splitHint"].notna().any()
+    use_split_hint = "splitHint" in df.columns and df["splitHint"].notna().any() and not args.ignore_split_hint
     run_count = int(df["runId"].nunique())
     print(f"Rows ready: {len(df):,}; runs: {run_count:,}; features per step: {len(feature_columns)}; splitHint={'yes' if use_split_hint else 'no'}")
 

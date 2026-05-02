@@ -40,14 +40,19 @@ def main() -> None:
     if not input_path.exists():
         raise FileNotFoundError(f"Input CSV not found: {input_path}")
 
-    counts = Counter()
-
-    # First pass: count labels.
+    # Auto-detect label range and remap to 0/1/2 if needed (-1/0/1 → 0/1/2)
+    raw_counts: Counter = Counter()
     with input_path.open("r", newline="") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            label = int(float(row[args.label_column]))
-            counts[label] += 1
+            raw_counts[int(float(row[args.label_column]))] += 1
+
+    raw_labels = sorted(raw_counts.keys())
+    label_remap = {raw: idx for idx, raw in enumerate(raw_labels)}
+    if label_remap != {0: 0, 1: 1, 2: 2}:
+        print(f"Remapping labels: {label_remap}")
+
+    counts = Counter({label_remap[k]: v for k, v in raw_counts.items()})
 
     required_labels = [0, 1, 2]
     missing = [label for label in required_labels if counts[label] == 0]
@@ -81,7 +86,8 @@ def main() -> None:
         writer.writeheader()
 
         for row in reader:
-            label = int(float(row[args.label_column]))
+            raw_label = int(float(row[args.label_column]))
+            label = label_remap.get(raw_label, raw_label)
 
             if label not in needed:
                 remaining[label] -= 1
@@ -93,6 +99,11 @@ def main() -> None:
 
             probability = needed[label] / remaining[label]
             if rnd.random() <= probability:
+                row[args.label_column] = str(label)
+                for col in ("target_tradeSide",):
+                    if col in row and col != args.label_column:
+                        raw_extra = int(float(row[col]))
+                        row[col] = str(label_remap.get(raw_extra, raw_extra))
                 writer.writerow(row)
                 needed[label] -= 1
                 written[label] += 1

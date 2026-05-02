@@ -406,7 +406,7 @@ def main() -> None:
     class_weights = torch.tensor(args.class_weights, dtype=torch.float32, device=device)
     print(f"Loss: FocalLoss(gamma={args.focal_gamma}), class_weights={args.class_weights}")
     ce_action = FocalLoss(gamma=args.focal_gamma, weight=class_weights)
-    ce_trade_side = FocalLoss(gamma=args.focal_gamma, weight=class_weights)
+    ce_trade_side = FocalLoss(gamma=args.focal_gamma, weight=None)
     regression_loss = nn.SmoothL1Loss(beta=1.0)
 
     global_step = 0
