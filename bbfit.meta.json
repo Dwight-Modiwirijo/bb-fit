@@ -1,0 +1,14 @@
+{
+  "input_size": 33,
+  "hidden_size": 512,
+  "num_layers": 3,
+  "action_classes": 3,
+  "trade_side_classes": 3,
+  "sequence_length": 64,
+  "outputs": {
+    "0": "action_logits",
+    "1": "trade_side_logits",
+    "2": "net_equity_delta"
+  },
+  "n_features": 2112
+}

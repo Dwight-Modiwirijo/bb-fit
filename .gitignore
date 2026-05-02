@@ -37,3 +37,23 @@ eval_indicators_warmup_step0000388.json
 sequences_indicators/normalization_stats.json
 sequences_indicators_v2/lstm_sequence_build_summary.json
 sequences_indicators_v3/lstm_sequence_build_summary.json
+
+# Orchestrator
+orchestrator/**/obj/
+orchestrator/**/bin/
+orchestrator/**/*.user
+dotnet-install.sh
+
+# Model binaries (groot bestand, niet in git)
+*.onnx
+EOFcd /home/dwyte/bb-fit
+cat >> .gitignore << 'EOF'
+
+# Orchestrator
+orchestrator/**/obj/
+orchestrator/**/bin/
+orchestrator/**/*.user
+dotnet-install.sh
+
+# Model binaries (groot bestand, niet in git)
+*.onnx
