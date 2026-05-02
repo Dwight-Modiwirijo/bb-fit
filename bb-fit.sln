@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "orchestrator", "orchestrator", "{386CF7F1-2C50-82F4-91F9-FCF6211B624B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BbFit.Orchestrator", "orchestrator\BbFit.Orchestrator\BbFit.Orchestrator.csproj", "{32B70533-5F5C-3D01-39A9-CD10A7AE172C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{32B70533-5F5C-3D01-39A9-CD10A7AE172C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{32B70533-5F5C-3D01-39A9-CD10A7AE172C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{32B70533-5F5C-3D01-39A9-CD10A7AE172C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{32B70533-5F5C-3D01-39A9-CD10A7AE172C}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{32B70533-5F5C-3D01-39A9-CD10A7AE172C} = {386CF7F1-2C50-82F4-91F9-FCF6211B624B}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {4E4E566C-51C7-4313-A6C8-5837AE89AA49}
+	EndGlobalSection
+EndGlobal

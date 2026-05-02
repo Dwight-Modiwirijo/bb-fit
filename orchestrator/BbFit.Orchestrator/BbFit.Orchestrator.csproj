@@ -11,4 +11,8 @@
     <PackageReference Include="Websocket.Client" Version="5.3.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="BbFit.Orchestrator.Tests" />
+  </ItemGroup>
+
 </Project>
