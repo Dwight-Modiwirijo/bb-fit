@@ -32,7 +32,23 @@ Scripts om dit uit te voeren:
 | `sequences_indicators_v3/` | `/home/dwyte/bb-fit/` | ~22 GB |
 | Checkpoints | `/home/dwyte/checkpoints/lstm_bbfit/` | ~50-100 MB/stuk |
 
-**Backup op Google Drive:** `lstm_merged.csv` + `btcusd_1-min_data.csv` + checkpoints na elke epoch.
+**Google Drive backup** — wat wel en niet uploaden:
+
+| Bestand | Naar Drive? | Waarom |
+|---|---|---|
+| `lstm_merged.csv` (1.2 GB) | **Ja** — brondata, moeilijk te reproduceren |
+| `btcusd_1-min_data.csv` (377 MB) | **Ja** — brondata voor TP/SL rebuild |
+| `lstm_merged_indicators_v3.csv` (1.3 GB) | Nee — rebuild duurt ~1 min |
+| `sequences_indicators_v3/` (~22 GB) | Nee — te groot, rebuild duurt ~15 min |
+| Checkpoints (`*.pt`, ~50-100 MB/stuk) | **Ja** — trainingsvoortgang, niet reproduceerbaar |
+| Eval JSONs (`eval_*.json`, sweep_*.json) | **Ja** — klein, bewijs van wat het model kon |
+| `STATUS.md` | **Ja** — projectgeheugen |
+
+Scripts:
+- `upload_to_drive.sh` — handmatig alles uploaden (checkpoints + evals + STATUS.md)
+- `run_watch_drive.sh` — automatische watcher in tmux, uploadt elke 5 minuten
+
+Drive locatie: `Mijn Drive > DGX > bb-fit`
 
 ---
 
