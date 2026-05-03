@@ -16,6 +16,10 @@ while true; do
     --include \"eval_*.json\" \
     --include \"threshold_sweep_*.json\" \
     --include \"sweep_*.json\"
+  rclone copy \"/home/dwyte/bb-fit/\" \"$REMOTE/evals/\" \
+    --include \"eval_*.json\" \
+    --include \"threshold_sweep_*.json\" \
+    --include \"sweep_*.json\"
 
   rclone copy \"/home/dwyte/Github/bb-fit/STATUS.md\" \"$REMOTE/\"
 
