@@ -3,7 +3,7 @@ set -e
 
 echo "=== Stap 1: Indicators berekenen ==="
 python /home/dwyte/bb-fit/add_indicators.py \
-  --input-csv  /home/dwyte/bb-fit/lstm_merged.csv \
+  --input-csv  /home/dwyte/logs/lstm_merged.csv \
   --output-csv /home/dwyte/bb-fit/lstm_merged_indicators_v3.csv
 
 echo ""
