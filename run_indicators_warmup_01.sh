@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 SESSION="indicators_warmup_01"
 
-tmux new-session -d -s "$SESSION" \
-  "docker run --rm --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
+tmux new-session -d -s "$SESSION"
+tmux send-keys -t "$SESSION" "docker run --rm --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 \
   -v /home/dwyte/bb-fit:/workspace/data \
   -v /home/dwyte/Github/bb-fit:/workspace/scripts \
   -v /home/dwyte/checkpoints:/workspace/checkpoints \
@@ -16,7 +16,7 @@ tmux new-session -d -s "$SESSION" \
   --class-weights 1.5 1.0 1.5 \
   --checkpoint-dir /workspace/checkpoints/lstm_bbfit/indicators_warmup_01 \
   --checkpoint-every-steps 200 \
-  2>&1 | tee /workspace/data/indicators_warmup_01.log"
+  2>&1 | tee /workspace/data/indicators_warmup_01.log" Enter
 
 echo "Training gestart in tmux sessie '$SESSION'."
 echo "Attachen met: tmux attach -t $SESSION"
