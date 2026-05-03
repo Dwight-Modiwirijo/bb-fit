@@ -21,7 +21,14 @@ echo \"=== Stap 2: Sequences bouwen ===\"
   --output-dir /workspace/data/sequences_indicators_v3
 
 echo \"\"
-echo \"=== Stap 3: Balanced warmup CSV (1:2:1) ===\"
+echo \"=== Stap 3: Labels remappen (-1/0/1 → 0/1/2) ===\"
+\$DOCKER python /workspace/scripts/remap_labels_fast.py \
+  /workspace/data/sequences_indicators_v3/lstm_train_sequences.csv \
+  /workspace/data/sequences_indicators_v3/lstm_validation_sequences.csv \
+  /workspace/data/sequences_indicators_v3/lstm_test_sequences.csv
+
+echo \"\"
+echo \"=== Stap 4: Balanced warmup CSV (1:2:1) ===\"
 \$DOCKER python /workspace/scripts/build_balanced_warmup_csv.py \
   --input  /workspace/data/sequences_indicators_v3/lstm_train_sequences.csv \
   --output /workspace/data/sequences_indicators_v3/lstm_train_balanced_warmup.csv \
