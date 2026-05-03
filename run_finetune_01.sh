@@ -14,7 +14,7 @@ tmux new-session -d -s "$SESSION" \
   --resume-checkpoint /workspace/checkpoints/lstm_bbfit/indicators_warmup_01/checkpoint_epoch05_step0001940.pt \
   --hidden-size 512 --num-layers 3 --dropout 0.1 \
   --lr 1e-5 --epochs 5 --batch-size 256 \
-  --focal-gamma 2.0 --class-weights 3.0 1.0 3.0 \
+  --focal-gamma 2.0 --class-weights 4.0 1.0 3.0 \
   --reset-optimizer \
   --checkpoint-dir /workspace/checkpoints/lstm_bbfit/finetune_01 \
   --checkpoint-every-steps 200 \

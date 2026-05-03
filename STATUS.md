@@ -102,34 +102,60 @@ Output heads:
 
 ---
 
-## Huidige run: `indicators_warmup_01`
+## Huidige run: `finetune_01`
 
-**Doel:** Model opwarmen op balanced data (1:2:1) zodat het alle 3 klassen leert.
+**Doel:** Precision verbeteren — model leren wanneer het NIET moet vuren.
 
 **Parameters:**
 ```
 --hidden-size 512 --num-layers 3 --dropout 0.1
---lr 3e-4 --epochs 5 --batch-size 256
---class-weights 1.5 1.0 1.5
---checkpoint-every-steps 200
+--lr 1e-5 --epochs 5 --batch-size 256
+--focal-gamma 2.0 --class-weights 4.0 1.0 3.0
+--reset-optimizer
+--resume-checkpoint: indicators_warmup_01/checkpoint_epoch05_step0001940.pt
 ```
 
-**Status:** Gestart (opnieuw na DGX crash van mei 2026)
+**Trainset:** `lstm_train_balanced_finetune_01.csv` — 1:10:1 ratio (297,108 rijen)
 
-**Checkpoint locatie:** `/home/dwyte/checkpoints/lstm_bbfit/indicators_warmup_01/`
+**Asymmetrische weights:** short=4.0 > long=3.0 omdat short zeldzamer is (~24% minder dan long in de data, consistent met stijgende BTC markt over 15 jaar)
+
+**Status:** Gestart (mei 2026)
+
+**Checkpoint locatie:** `/home/dwyte/checkpoints/lstm_bbfit/finetune_01/`
 
 ---
 
-## Eerdere runs (voor de crash, mei 2026)
+## Voltooide runs
 
-Volgorde op basis van gitignore history:
+### `indicators_warmup_01` — ✅ Klaar (mei 2026)
+
+**Parameters:** lr=3e-4, epochs=5, batch=256, class-weights=1.5/1.0/1.5, trainset 1:2:1 (99,036 rijen)
+
+**Evaluatie eindcheckpoint (epoch05_step0001940):**
+
+| | Validation | Test |
+|---|---|---|
+| Balanced accuracy | **70.4%** | 69.2% |
+| Macro F1 | 0.30 | 0.31 |
+| Recall short | 59.2% | 49.6% |
+| Recall long | 98.3% | 97.2% |
+| Precision short | 1.8% | 1.4% |
+| Precision long | 9.3% | 8.8% |
+
+**Conclusie:** Model leert alle 3 klassen (balanced acc 70% > target 60-65%), maar precision is veel te laag — vuurt te agressief. Verwacht na warmup op balanced data. Opgelost door finetune_01.
+
+**Eval JSON:** `gdrive:DGX/bb-fit/evals/eval_indicators_warmup_01_ep5.json`
+
+---
+
+## Runs voor de crash (mei 2026) — metrics verloren
+
+Volgorde op basis van gitignore history. Metrics niet bewaard (lokaal opgeslagen).
 
 1. **`indicators_warmup_01`** — warmup, getraind tot epoch 6 step 2328
 2. **`indicators_finetune_01`** — finetune op de warmup
 3. **`balanced_ft`** — finetune met balanced data, meerdere checkpoints (step 400 t/m 2556)
 4. **`norm_focal_01`** — aparte tak met normalisatie + focal loss, tot epoch 5 step 1800
-
-Metrics zijn verloren gegaan (lokaal opgeslagen, niet in GitHub of Google Drive).
 
 ---
 
@@ -152,4 +178,4 @@ Metrics zijn verloren gegaan (lokaal opgeslagen, niet in GitHub of Google Drive)
 
 ---
 
-*Laatst bijgewerkt: 2026-05-03*
+*Laatst bijgewerkt: 2026-05-03 — finetune_01 gestart, warmup eval gedocumenteerd*
