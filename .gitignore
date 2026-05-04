@@ -48,3 +48,4 @@ dotnet-install.sh
 *.onnx
 # Uitzondering: het getrainde productiemodel wél tracken (21 MB, < GitHub-limiet)
 !bbfit.onnx
+STATUS.md
