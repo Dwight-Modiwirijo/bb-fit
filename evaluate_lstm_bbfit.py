@@ -295,6 +295,64 @@ def evaluate_model(
     }
 
 
+def collect_probs(
+    model: nn.Module,
+    dataloader: DataLoader,
+    device: torch.device,
+) -> Tuple[torch.Tensor, List[int]]:
+    """Collect softmax probabilities and true action labels for threshold sweep."""
+    all_probs: List[torch.Tensor] = []
+    all_true: List[int] = []
+    model.eval()
+    with torch.no_grad():
+        for x, y in dataloader:
+            x = x.to(device, non_blocking=True)
+            outputs = model(x)
+            probs = torch.softmax(outputs["action_logits"], dim=1).cpu()
+            all_probs.append(probs)
+            all_true.extend(y["action_taken"].tolist())
+    return torch.cat(all_probs, dim=0), all_true
+
+
+def threshold_sweep(
+    all_probs: torch.Tensor,
+    all_true: List[int],
+    num_classes: int = 3,
+    hold_class: int = 1,
+) -> List[Dict]:
+    """Sweep hold threshold and report per-class metrics at each point."""
+    thresholds = [round(t * 0.05, 2) for t in range(4, 21)]  # 0.20 .. 1.00
+
+    non_hold_classes = [i for i in range(num_classes) if i != hold_class]
+    hold_probs = all_probs[:, hold_class]
+    non_hold_probs = all_probs[:, non_hold_classes]
+    non_hold_argmax = non_hold_probs.argmax(dim=1)
+    non_hold_preds = torch.tensor([non_hold_classes[i] for i in non_hold_argmax.tolist()])
+
+    results = []
+    for thresh in thresholds:
+        preds = torch.where(hold_probs >= thresh,
+                            torch.tensor(hold_class),
+                            non_hold_preds).tolist()
+        conf = [[0] * num_classes for _ in range(num_classes)]
+        for t, p in zip(all_true, preds):
+            conf[t][p] += 1
+        m = confusion_to_metrics(conf)
+        pc = {c["class"]: c for c in m["per_class"]}
+        results.append({
+            "hold_threshold": thresh,
+            "balanced_accuracy": round(m["balanced_accuracy"], 4),
+            "macro_f1": round(m["macro_f1"], 4),
+            "short_precision": round(pc[0]["precision"], 4),
+            "short_recall": round(pc[0]["recall"], 4),
+            "short_support_predicted": sum(conf[r][0] for r in range(num_classes)),
+            "long_precision": round(pc[2]["precision"], 4),
+            "long_recall": round(pc[2]["recall"], 4),
+            "long_support_predicted": sum(conf[r][2] for r in range(num_classes)),
+        })
+    return results
+
+
 def evaluate_majority_baseline(
     dataloader: DataLoader,
     majority_action: int,
@@ -436,6 +494,24 @@ def main() -> None:
 
     validation_metrics = evaluate_model(model, validation_loader, device, action_classes, trade_side_classes)
     test_metrics = evaluate_model(model, test_loader, device, action_classes, trade_side_classes)
+
+    print("\n=== THRESHOLD SWEEP (validation) ===")
+    val_probs, val_true = collect_probs(model, validation_loader, device)
+    val_sweep = threshold_sweep(val_probs, val_true)
+    print(f"{'thresh':>7}  {'bal_acc':>7}  {'s_prec':>7}  {'s_rec':>7}  {'s_pred':>7}  {'l_prec':>7}  {'l_rec':>7}  {'l_pred':>7}")
+    for r in val_sweep:
+        print(f"{r['hold_threshold']:>7.2f}  {r['balanced_accuracy']:>7.4f}  "
+              f"{r['short_precision']:>7.4f}  {r['short_recall']:>7.4f}  {r['short_support_predicted']:>7}  "
+              f"{r['long_precision']:>7.4f}  {r['long_recall']:>7.4f}  {r['long_support_predicted']:>7}")
+
+    print("\n=== THRESHOLD SWEEP (test) ===")
+    test_probs, test_true = collect_probs(model, test_loader, device)
+    test_sweep = threshold_sweep(test_probs, test_true)
+    print(f"{'thresh':>7}  {'bal_acc':>7}  {'s_prec':>7}  {'s_rec':>7}  {'s_pred':>7}  {'l_prec':>7}  {'l_rec':>7}  {'l_pred':>7}")
+    for r in test_sweep:
+        print(f"{r['hold_threshold']:>7.2f}  {r['balanced_accuracy']:>7.4f}  "
+              f"{r['short_precision']:>7.4f}  {r['short_recall']:>7.4f}  {r['short_support_predicted']:>7}  "
+              f"{r['long_precision']:>7.4f}  {r['long_recall']:>7.4f}  {r['long_support_predicted']:>7}")
     validation_baseline = evaluate_majority_baseline(
         validation_loader_for_baseline,
         majority_action,
@@ -462,6 +538,10 @@ def main() -> None:
         "model": {
             "validation": validation_metrics,
             "test": test_metrics,
+        },
+        "threshold_sweep": {
+            "validation": val_sweep,
+            "test": test_sweep,
         },
     }
 
