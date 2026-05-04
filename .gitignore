@@ -49,3 +49,9 @@ dotnet-install.sh
 # Uitzondering: het getrainde productiemodel wél tracken (21 MB, < GitHub-limiet)
 !bbfit.onnx
 STATUS.md
+run_tpsl_eval_01.sh
+run_tpsl_eval_02.sh
+run_tpsl_eval_03.sh
+run_tpsl_finetune_02.sh
+run_tpsl_finetune_03.sh
+.claude/scheduled_tasks.lock
