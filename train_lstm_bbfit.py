@@ -12,6 +12,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, IterableDataset
+from torch.utils.tensorboard import SummaryWriter
 
 
 META_COLUMNS = [
@@ -340,6 +341,12 @@ def parse_args() -> argparse.Namespace:
                         help="Focal loss gamma. 0 = standard cross-entropy.")
     parser.add_argument("--class-weights", type=float, nargs=3, default=[2.0, 1.0, 2.0],
                         metavar=("W0", "W1", "W2"))
+    parser.add_argument("--tensorboard-dir", default=None,
+                        help="TensorBoard log dir. Defaults to <checkpoint-dir>/tensorboard.")
+    parser.add_argument("--lr-scheduler", choices=["plateau", "cosine", "none"], default="plateau",
+                        help="LR scheduler: plateau=ReduceLROnPlateau, cosine=CosineAnnealingLR, none.")
+    parser.add_argument("--scheduler-patience", type=int, default=2,
+                        help="Epochs without improvement before plateau scheduler reduces LR.")
     return parser.parse_args()
 
 
@@ -403,6 +410,21 @@ def main() -> None:
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
+    if args.lr_scheduler == "plateau":
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, mode="min", factor=0.5, patience=args.scheduler_patience)
+    elif args.lr_scheduler == "cosine":
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=args.epochs)
+    else:
+        scheduler = None
+
+    tb_dir = Path(args.tensorboard_dir) if args.tensorboard_dir else checkpoint_dir / "tensorboard"
+    writer = SummaryWriter(log_dir=str(tb_dir))
+    print(f"TensorBoard: {tb_dir}")
+
+    best_val_accuracy = -1.0
+
     class_weights = torch.tensor(args.class_weights, dtype=torch.float32, device=device)
     print(f"Loss: FocalLoss(gamma={args.focal_gamma}), class_weights={args.class_weights}")
     ce_action = FocalLoss(gamma=args.focal_gamma, weight=class_weights)
@@ -460,13 +482,18 @@ def main() -> None:
             global_step += 1
 
             if global_step % 100 == 0:
+                avg_loss = running_loss / running_batches
                 print(
                     f"epoch={epoch} step={global_step} "
-                    f"loss={running_loss / running_batches:.6f} "
+                    f"loss={avg_loss:.6f} "
                     f"loss_action={loss_action.item():.6f} "
                     f"loss_tradeSide={loss_trade_side.item():.6f} "
                     f"loss_equity={loss_equity.item():.6f}"
                 )
+                writer.add_scalar("train/loss", avg_loss, global_step)
+                writer.add_scalar("train/loss_action", loss_action.item(), global_step)
+                writer.add_scalar("train/loss_trade_side", loss_trade_side.item(), global_step)
+                writer.add_scalar("train/lr", optimizer.param_groups[0]["lr"], global_step)
 
             if global_step % args.checkpoint_every_steps == 0:
                 val_metrics = evaluate(model, validation_loader, device, args.eval_max_batches)
@@ -480,6 +507,8 @@ def main() -> None:
                 )
                 print(f"Checkpoint saved: {checkpoint_path}")
                 print(f"Validation metrics at step {global_step}: {json.dumps(val_metrics, indent=2)}")
+                writer.add_scalar("val/loss", val_metrics["loss"], global_step)
+                writer.add_scalar("val/action_accuracy", val_metrics["action_accuracy"], global_step)
                 print_vram(f"Checkpoint step {global_step}")
                 model.train()
 
@@ -492,6 +521,19 @@ def main() -> None:
         print(f"Validation: {json.dumps(validation_metrics, indent=2)}")
         print(f"Test: {json.dumps(test_metrics, indent=2)}")
         print_vram(f"Epoch {epoch} end")
+
+        writer.add_scalar("epoch/train_loss", epoch_train_loss, epoch)
+        writer.add_scalar("epoch/val_loss", validation_metrics["loss"], epoch)
+        writer.add_scalar("epoch/val_action_accuracy", validation_metrics["action_accuracy"], epoch)
+        writer.add_scalar("epoch/test_action_accuracy", test_metrics["action_accuracy"], epoch)
+        writer.add_scalar("epoch/lr", optimizer.param_groups[0]["lr"], epoch)
+
+        if scheduler is not None:
+            if isinstance(scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+                scheduler.step(validation_metrics["loss"])
+            else:
+                scheduler.step()
+            print(f"LR after scheduler: {optimizer.param_groups[0]['lr']:.2e}")
 
         checkpoint_path = save_checkpoint(
             checkpoint_dir,
@@ -507,6 +549,14 @@ def main() -> None:
         )
         print(f"Epoch checkpoint saved: {checkpoint_path}")
 
+        val_acc = validation_metrics["action_accuracy"]
+        if val_acc > best_val_accuracy:
+            best_val_accuracy = val_acc
+            best_path = checkpoint_dir / "checkpoint_best.pt"
+            torch.save(torch.load(checkpoint_path, map_location="cpu"), best_path)
+            print(f"New best val_accuracy={val_acc:.4f} → saved {best_path}")
+
+    writer.close()
     print("Training complete.")
     print_vram("Training complete")
 
