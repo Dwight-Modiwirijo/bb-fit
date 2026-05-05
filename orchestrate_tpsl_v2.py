@@ -37,7 +37,7 @@ MAX_ROUNDS     = 5
 # ─── Training defaults ────────────────────────────────────────────────────────
 EPOCHS_PER_ROUND  = 10
 LR                = 1e-4
-HOLD_WEIGHT_STEP  = 5.0
+HOLD_WEIGHT_STEP  = 2.0
 
 DOCKER_FLAGS = [
     "docker", "run", "--rm", "--gpus", "all", "--ipc=host",
