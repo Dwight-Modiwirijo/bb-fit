@@ -53,6 +53,14 @@ DEFAULT_NUMERIC_FEATURES = [
     "ind_ema233_ratio",
     "ind_ema_trend",
     "ind_choppiness14",
+    "ind_bb20_upper_ratio",
+    "ind_bb20_lower_ratio",
+    "ind_bb20_bandwidth",
+    "ind_bb20_bw_delta",
+    "ind_sma20_delta",
+    "ind_sma20_delta2",
+    "ind_rs14",
+    "ind_rs14_delta",
 ]
 
 DEFAULT_CATEGORICAL_FEATURES = [
