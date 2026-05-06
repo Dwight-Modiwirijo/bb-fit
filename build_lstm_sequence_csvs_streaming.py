@@ -54,6 +54,10 @@ DEFAULT_NUMERIC_FEATURES = [
     "ind_sma20_delta2",
     "ind_rs14",
     "ind_rs14_delta",
+    # BB-optimalisatie: welke BB-params waren het beste in de afgelopen 12u
+    "bb_opt_period_norm",   # beste period (Fibonacci: 8/13/21/34/55) genormaliseerd [0,1]
+    "bb_opt_bias_norm",     # beste stddev-multiplier (0.7-1.2) genormaliseerd [0,1]
+    "bb_opt_growth",        # groeiperdag van de beste combo (tanh-geschaald ~[-1,1])
     # REMOVED: actionTaken (label leakage — this IS the prediction target)
     # REMOVED: tradingCapital, assetsHeld, positionValue, netEquity,
     #          buyCount, sellCount, wins, losses, totalTradedNotional,
@@ -202,25 +206,38 @@ def prepare_features(df: pd.DataFrame, numeric_features: List[str], categorical_
 
 
 def add_price_ratios(df: pd.DataFrame) -> pd.DataFrame:
-    """Replace absolute OHLC price columns with ratios to signalClose.
+    """Normalise OHLC prices to ratios and clip unbounded indicator values.
 
     Raw BTC-scale prices (~60k) saturate LSTM activations and cause NaN loss.
-    All ratio columns are ~1.0 and safe for the LSTM.
-    entryPrice_r is 0 when not in position (signalClose > 0 always holds for
-    valid candles, so no divide-by-zero for real rows).
+    ind_rs14 (avgGain/avgLoss) diverges to 10^14 when avgLoss → 0 (long gain
+    streaks). Clipping to [0, 100] maps to RSI [0, 99%] without losing signal.
     """
     df = df.copy()
     close = df["signalClose"].replace(0, float("nan"))
-    df["signalOpen_r"]  = df["signalOpen"]      / close
-    df["signalHigh_r"]  = df["signalHigh"]       / close
-    df["signalLow_r"]   = df["signalLow"]        / close
-    df["execOpen_r"]    = df["executionOpen"]    / close
-    df["execHigh_r"]    = df["executionHigh"]    / close
-    df["execLow_r"]     = df["executionLow"]     / close
-    df["execClose_r"]   = df["executionClose"]   / close
-    df["execPrice_r"]   = df["executionPrice"]   / close
-    df["entryPrice_r"]  = df["entryPrice"].fillna(0.0) / close
-    df["entryPrice_r"]  = df["entryPrice_r"].fillna(0.0)
+
+    # Price ratios (~1.0, bounded)
+    df["signalOpen_r"]  = df["signalOpen"].fillna(0.0)       / close
+    df["signalHigh_r"]  = df["signalHigh"].fillna(0.0)       / close
+    df["signalLow_r"]   = df["signalLow"].fillna(0.0)        / close
+    df["execOpen_r"]    = df["executionOpen"].fillna(0.0)    / close
+    df["execHigh_r"]    = df["executionHigh"].fillna(0.0)    / close
+    df["execLow_r"]     = df["executionLow"].fillna(0.0)     / close
+    df["execClose_r"]   = df["executionClose"].fillna(0.0)   / close
+    df["execPrice_r"]   = df["executionPrice"].fillna(0.0)   / close
+    df["entryPrice_r"]  = df["entryPrice"].fillna(0.0)       / close
+
+    # Fill any remaining NaN from close==0 rows
+    for col in ["signalOpen_r", "signalHigh_r", "signalLow_r",
+                "execOpen_r", "execHigh_r", "execLow_r",
+                "execClose_r", "execPrice_r", "entryPrice_r"]:
+        df[col] = df[col].fillna(0.0)
+
+    # RS ratio diverges to 10^14 when avgLoss → 0; clip to RSI-equivalent range
+    if "ind_rs14" in df.columns:
+        df["ind_rs14"] = df["ind_rs14"].clip(0.0, 100.0)
+    if "ind_rs14_delta" in df.columns:
+        df["ind_rs14_delta"] = df["ind_rs14_delta"].clip(-100.0, 100.0)
+
     return df
 
 

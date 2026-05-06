@@ -84,10 +84,15 @@ def process_run(
     onemin: Dict[int, Tuple[float, float]],
     tp_pct: float,
     sl_pct: float,
-) -> Tuple[List[Dict], int, int]:
+) -> Tuple[List[Dict], int, int, int]:
     """
     Apply TP/SL logic to a single run.
-    Returns (modified_rows, n_early_exits, n_total_exits).
+
+    PnL filtering: if a trade exits via SL (loss), the entry row is relabeled
+    as hold (actionTaken=0, tradeSide=0, tradeActionRaw=0) so the LSTM does not
+    learn to open losing positions.
+
+    Returns (modified_rows, n_early_tp, n_early_sl, n_total_exits).
     """
     result: List[Dict] = []
 
@@ -100,19 +105,25 @@ def process_run(
     sl_price = 0.0
     fee = 0.0
     last_scanned_ts = 0
+    entry_result_idx = -1  # index in result[] where entry row was appended
 
     # Early-exit state
-    early_exit_pending = False   # TP/SL found, not yet applied to a row
+    early_exit_pending = False
     early_exit_price = 0.0
     early_exit_reason = ""
-    exited_early = False         # applied early exit; nulling rows until orig exit
+    exited_early = False
     post_exit_net_equity = 0.0
 
-    n_early = 0
+    # PnL filter: indices of entry rows that resulted in SL (losing) trades
+    sl_entry_indices: List[int] = []
+
+    n_early_tp = 0
+    n_early_sl = 0
     n_total = 0
 
     for row in rows:
         row = dict(row)
+        row["exit_reason"] = ""
         action = int(float(row["actionTaken"]))
         row_ts = int(float(row["executionTimestamp"]))
         fee = float(row["canonicalFee"])
@@ -152,12 +163,19 @@ def process_run(
             row["entryPrice"]     = "0"
             row["positionValue"]  = "0"
             row["netEquity"]      = str(exit_net_equity)
+            row["exit_reason"]    = early_exit_reason  # "tp" or "sl"
             result.append(row)
+
+            # PnL filter: SL exit → mark the entry row for relabeling
+            if early_exit_reason == "sl" and entry_result_idx >= 0:
+                sl_entry_indices.append(entry_result_idx)
+                n_early_sl += 1
+            else:
+                n_early_tp += 1
 
             in_position = False
             early_exit_pending = False
             exited_early = True
-            n_early += 1
             n_total += 1
             continue
 
@@ -171,10 +189,11 @@ def process_run(
             row["positionValue"]  = "0"
             row["netEquity"]      = str(post_exit_net_equity)
             if action == -1:
-                # This is the original exit — convert to hold
+                # Original exit — convert to hold (position already closed)
                 row["actionTaken"]    = "0"
                 row["tradeSide"]      = "0"
                 row["tradeActionRaw"] = "0"
+                row["exit_reason"]    = "orig_suppressed"
                 exited_early = False
             result.append(row)
             continue
@@ -184,6 +203,7 @@ def process_run(
         # ------------------------------------------------------------------
         if action == 1:
             in_position = True
+            entry_result_idx  = len(result)   # record where this entry lands
             entry_price       = float(row["executionPrice"])
             entry_net_equity  = float(row["netEquity"])
             entry_assets      = float(row["assetsHeld"])
@@ -198,6 +218,7 @@ def process_run(
             in_position = False
             early_exit_pending = False
             exited_early = False
+            row["exit_reason"] = "orig"
             n_total += 1
             result.append(row)
 
@@ -213,7 +234,17 @@ def process_run(
                 row["entryPrice"]  = str(entry_price)
             result.append(row)
 
-    return result, n_early, n_total
+    # ------------------------------------------------------------------
+    # PnL filter post-pass: relabel SL entry rows as hold
+    # The LSTM should not learn to open positions that end in a loss.
+    # ------------------------------------------------------------------
+    for idx in sl_entry_indices:
+        result[idx]["actionTaken"]    = "0"
+        result[idx]["tradeSide"]      = "0"
+        result[idx]["tradeActionRaw"] = "0"
+        result[idx]["exit_reason"]    = "sl_entry_relabeled"
+
+    return result, n_early_tp, n_early_sl, n_total
 
 
 # ---------------------------------------------------------------------------
@@ -253,24 +284,35 @@ def main() -> None:
 
     # Process each run and write output
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    grand_early = 0
     grand_total = 0
+
+    # Add exit_reason to fieldnames if not present
+    if "exit_reason" not in fieldnames:
+        fieldnames = fieldnames + ["exit_reason"]
+
+    grand_tp = 0
+    grand_sl = 0
 
     with output_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for run_idx, (run_id, rows) in enumerate(run_rows.items()):
             print(f"  Run {run_idx+1}/{len(run_rows)}: {run_id[:60]} ({len(rows):,} rows)", flush=True)
-            modified, n_early, n_total = process_run(rows, onemin, args.tp_pct, args.sl_pct)
-            grand_early += n_early
+            modified, n_tp, n_sl, n_total = process_run(rows, onemin, args.tp_pct, args.sl_pct)
+            grand_tp += n_tp
+            grand_sl += n_sl
             grand_total += n_total
             for row in modified:
                 writer.writerow(row)
-            print(f"    exits: {n_total:,} total, {n_early:,} early (TP/SL), {n_total-n_early:,} original", flush=True)
+            n_orig = n_total - n_tp - n_sl
+            print(f"    exits: {n_total:,} total | TP={n_tp:,} | SL={n_sl:,} (relabeled→hold) | orig={n_orig:,}", flush=True)
 
+    n_orig_total = grand_total - grand_tp - grand_sl
     print(f"\nDone.", flush=True)
     print(f"Total exits : {grand_total:,}", flush=True)
-    print(f"Early (TP/SL): {grand_early:,} ({100*grand_early/grand_total:.1f}% of exits)", flush=True)
+    print(f"  TP exits  : {grand_tp:,}  ({100*grand_tp/max(grand_total,1):.1f}%)", flush=True)
+    print(f"  SL exits  : {grand_sl:,}  ({100*grand_sl/max(grand_total,1):.1f}%) → entry relabeled as hold", flush=True)
+    print(f"  Orig exits: {n_orig_total:,}  ({100*n_orig_total/max(grand_total,1):.1f}%)", flush=True)
     print(f"Output: {output_path}", flush=True)
 
 
