@@ -24,23 +24,23 @@ DEFAULT_NUMERIC_FEATURES = [
     "canonicalFee",
     "intervalMinutes",
     "observedIntervalMinutes",
-    # Signal OHLC (market data — bounded per candle)
-    "signalOpen",
-    "signalHigh",
-    "signalLow",
-    "signalClose",
-    # Execution OHLC (bounded; may differ from signal due to slippage)
-    "executionOpen",
-    "executionHigh",
-    "executionLow",
-    "executionClose",
-    "executionPrice",
+    # Signal OHLC as intra-candle ratios to signalClose (all ~1.0, bounded)
+    # signalClose itself is dropped — already captured by ind_ema55_ratio
+    "signalOpen_r",    # signalOpen  / signalClose
+    "signalHigh_r",    # signalHigh  / signalClose
+    "signalLow_r",     # signalLow   / signalClose
+    # Execution prices as ratios to signalClose (captures slippage / spread)
+    "execOpen_r",      # executionOpen   / signalClose
+    "execHigh_r",      # executionHigh   / signalClose
+    "execLow_r",       # executionLow    / signalClose
+    "execClose_r",     # executionClose  / signalClose
+    "execPrice_r",     # executionPrice  / signalClose
+    "entryPrice_r",    # entryPrice      / signalClose  (0 when not in position)
     # Bot signal state (bounded categorical / binary)
     "tradeActionRaw",
     "tradeSide",
     "lastTrade",
     "inPosition",
-    "entryPrice",
     # 12 technical indicators (all normalised ratios / bounded deltas)
     "ind_ema55_ratio",
     "ind_ema233_ratio",
@@ -58,6 +58,8 @@ DEFAULT_NUMERIC_FEATURES = [
     # REMOVED: tradingCapital, assetsHeld, positionValue, netEquity,
     #          buyCount, sellCount, wins, losses, totalTradedNotional,
     #          feePerSide, cost  (all grow unboundedly → NaN in LSTM)
+    # REMOVED: raw signalClose / executionClose / entryPrice absolute values
+    #          (BTC-scale prices ~60k saturate LSTM activations → NaN loss)
 ]
 
 DEFAULT_CATEGORICAL_FEATURES = [
@@ -199,6 +201,29 @@ def prepare_features(df: pd.DataFrame, numeric_features: List[str], categorical_
     return df, feature_columns, mappings
 
 
+def add_price_ratios(df: pd.DataFrame) -> pd.DataFrame:
+    """Replace absolute OHLC price columns with ratios to signalClose.
+
+    Raw BTC-scale prices (~60k) saturate LSTM activations and cause NaN loss.
+    All ratio columns are ~1.0 and safe for the LSTM.
+    entryPrice_r is 0 when not in position (signalClose > 0 always holds for
+    valid candles, so no divide-by-zero for real rows).
+    """
+    df = df.copy()
+    close = df["signalClose"].replace(0, float("nan"))
+    df["signalOpen_r"]  = df["signalOpen"]      / close
+    df["signalHigh_r"]  = df["signalHigh"]       / close
+    df["signalLow_r"]   = df["signalLow"]        / close
+    df["execOpen_r"]    = df["executionOpen"]    / close
+    df["execHigh_r"]    = df["executionHigh"]    / close
+    df["execLow_r"]     = df["executionLow"]     / close
+    df["execClose_r"]   = df["executionClose"]   / close
+    df["execPrice_r"]   = df["executionPrice"]   / close
+    df["entryPrice_r"]  = df["entryPrice"].fillna(0.0) / close
+    df["entryPrice_r"]  = df["entryPrice_r"].fillna(0.0)
+    return df
+
+
 def validate_feature_columns(df: pd.DataFrame, feature_columns: List[str]) -> None:
     missing = [c for c in feature_columns if c not in df.columns]
     if missing:
@@ -326,6 +351,8 @@ def main() -> None:
     ensure_required_columns(df)
     print("Parsing timestamps and sorting...")
     df = parse_and_sort(df)
+    print("Computing price ratios (normalise OHLC to signalClose)...")
+    df = add_price_ratios(df)
     print("Preparing numeric/categorical features...")
     df, feature_columns, mappings = prepare_features(df, DEFAULT_NUMERIC_FEATURES, DEFAULT_CATEGORICAL_FEATURES)
     validate_feature_columns(df, feature_columns)
