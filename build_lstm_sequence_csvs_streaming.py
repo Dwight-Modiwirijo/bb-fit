@@ -20,35 +20,28 @@ import pandas as pd
 
 
 DEFAULT_NUMERIC_FEATURES = [
+    # Candle timing
     "canonicalFee",
     "intervalMinutes",
     "observedIntervalMinutes",
+    # Signal OHLC (market data — bounded per candle)
     "signalOpen",
     "signalHigh",
     "signalLow",
     "signalClose",
+    # Execution OHLC (bounded; may differ from signal due to slippage)
     "executionOpen",
     "executionHigh",
     "executionLow",
     "executionClose",
     "executionPrice",
+    # Bot signal state (bounded categorical / binary)
     "tradeActionRaw",
     "tradeSide",
     "lastTrade",
-    "actionTaken",
-    "tradingCapital",
-    "assetsHeld",
     "inPosition",
     "entryPrice",
-    "positionValue",
-    "netEquity",
-    "buyCount",
-    "sellCount",
-    "wins",
-    "losses",
-    "totalTradedNotional",
-    "feePerSide",
-    "cost",
+    # 12 technical indicators (all normalised ratios / bounded deltas)
     "ind_ema55_ratio",
     "ind_ema233_ratio",
     "ind_ema_trend",
@@ -61,6 +54,10 @@ DEFAULT_NUMERIC_FEATURES = [
     "ind_sma20_delta2",
     "ind_rs14",
     "ind_rs14_delta",
+    # REMOVED: actionTaken (label leakage — this IS the prediction target)
+    # REMOVED: tradingCapital, assetsHeld, positionValue, netEquity,
+    #          buyCount, sellCount, wins, losses, totalTradedNotional,
+    #          feePerSide, cost  (all grow unboundedly → NaN in LSTM)
 ]
 
 DEFAULT_CATEGORICAL_FEATURES = [
