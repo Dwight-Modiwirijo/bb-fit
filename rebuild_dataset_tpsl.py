@@ -84,6 +84,7 @@ def process_run(
     onemin: Dict[int, Tuple[float, float]],
     tp_pct: float,
     sl_pct: float,
+    pnl_filter: bool = False,
 ) -> Tuple[List[Dict], int, int, int]:
     """
     Apply TP/SL logic to a single run.
@@ -235,14 +236,14 @@ def process_run(
             result.append(row)
 
     # ------------------------------------------------------------------
-    # PnL filter post-pass: relabel SL entry rows as hold
-    # The LSTM should not learn to open positions that end in a loss.
+    # PnL filter post-pass: relabel SL entry rows as hold (only if enabled)
     # ------------------------------------------------------------------
-    for idx in sl_entry_indices:
-        result[idx]["actionTaken"]    = "0"
-        result[idx]["tradeSide"]      = "0"
-        result[idx]["tradeActionRaw"] = "0"
-        result[idx]["exit_reason"]    = "sl_entry_relabeled"
+    if pnl_filter:
+        for idx in sl_entry_indices:
+            result[idx]["actionTaken"]    = "0"
+            result[idx]["tradeSide"]      = "0"
+            result[idx]["tradeActionRaw"] = "0"
+            result[idx]["exit_reason"]    = "sl_entry_relabeled"
 
     return result, n_early_tp, n_early_sl, n_total
 
@@ -258,6 +259,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output-csv", required=True)
     p.add_argument("--tp-pct", type=float, default=0.024, help="Take-profit fraction (default 0.024 = 2.4%%)")
     p.add_argument("--sl-pct", type=float, default=0.012, help="Stop-loss fraction (default 0.012 = 1.2%%)")
+    p.add_argument("--pnl-filter", action="store_true", default=False,
+                   help="Relabel SL-exit entry rows as hold (PnL filtering). Default: off.")
     return p.parse_args()
 
 
@@ -298,7 +301,7 @@ def main() -> None:
         writer.writeheader()
         for run_idx, (run_id, rows) in enumerate(run_rows.items()):
             print(f"  Run {run_idx+1}/{len(run_rows)}: {run_id[:60]} ({len(rows):,} rows)", flush=True)
-            modified, n_tp, n_sl, n_total = process_run(rows, onemin, args.tp_pct, args.sl_pct)
+            modified, n_tp, n_sl, n_total = process_run(rows, onemin, args.tp_pct, args.sl_pct, args.pnl_filter)
             grand_tp += n_tp
             grand_sl += n_sl
             grand_total += n_total
