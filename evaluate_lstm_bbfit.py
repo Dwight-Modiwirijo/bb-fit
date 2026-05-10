@@ -124,12 +124,15 @@ class MultiHeadLstm(nn.Module):
 
 
 def require_cuda() -> torch.device:
-    if not torch.cuda.is_available():
-        raise RuntimeError("CUDA is required for this evaluation run.")
-    return torch.device("cuda:0")
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    return torch.device("cpu")
 
 
 def print_vram(prefix: str) -> None:
+    if not torch.cuda.is_available():
+        print(f"{prefix} | running on CPU, no VRAM stats")
+        return
     device = torch.device("cuda:0")
     allocated = torch.cuda.memory_allocated(device) / (1024 ** 3)
     reserved = torch.cuda.memory_reserved(device) / (1024 ** 3)
