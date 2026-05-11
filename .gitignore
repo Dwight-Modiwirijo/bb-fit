@@ -55,3 +55,23 @@ run_tpsl_eval_03.sh
 run_tpsl_finetune_02.sh
 run_tpsl_finetune_03.sh
 .claude/scheduled_tasks.lock
+.claude/settings.json
+copilot.gpt.md
+nan_loss_analyse.md
+
+# Obsolete orchestrators (superseded by v5/v6; v4b kept as best-result reference)
+orchestrate_tpsl_v2.py
+orchestrate_tpsl_v3.py
+orchestrate_tpsl_v4.py
+
+# Obsolete run scripts (superseded by v4b/v5/v6)
+run_tpsl_v2_*.sh
+run_tpsl_v3_*.sh
+run_tpsl_v4_warmup.sh
+run_tpsl_backtest_v2.sh
+run_build_tpsl_v2.sh
+run_build_tpsl_v4.sh
+run_build_v3_rebuild.sh
+run_build_v3.sh
+run_tpsl_v4_orch.sh
+watch_start_*.sh
