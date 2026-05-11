@@ -66,6 +66,44 @@ DEFAULT_NUMERIC_FEATURES = [
     #          (BTC-scale prices ~60k saturate LSTM activations → NaN loss)
 ]
 
+# v6: uses TAengine indicators directly (sma, ema, BB, RSI, stoch_rsi)
+# normalised columns are pre-computed by add_v6_features.py
+V6_NUMERIC_FEATURES = [
+    "canonicalFee",
+    "intervalMinutes",
+    "observedIntervalMinutes",
+    "signalOpen_r",
+    "signalHigh_r",
+    "signalLow_r",
+    "execOpen_r",
+    "execHigh_r",
+    "execLow_r",
+    "execClose_r",
+    "execPrice_r",
+    "entryPrice_r",       # long_entry_price / signalClose (added by add_v6_features.py)
+    "tradeActionRaw",
+    "tradeSide",
+    "lastTrade",
+    "inPosition",
+    "sma_r",              # sma / signalClose
+    "ema_r",              # ema / signalClose
+    "upper_band_r",       # upper_band / signalClose
+    "lower_band_r",       # lower_band / signalClose
+    "deviation_r",        # deviation / signalClose
+    "band_width",
+    "band_width_delta",
+    "rsi_norm",           # rsi / 100
+    "stoch_rsi",
+    "bb_position",
+    "bars_since_entry_norm",
+    "bars_since_last_trade_norm",
+    "unrealized_pnl_r",
+]
+
+V6_CATEGORICAL_FEATURES = [
+    "interval",
+]
+
 DEFAULT_CATEGORICAL_FEATURES = [
     "runGroup",
     "sourceFile",
