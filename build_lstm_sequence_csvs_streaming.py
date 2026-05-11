@@ -141,6 +141,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--test-ratio", type=float, default=0.15, help="Test split ratio when splitHint is absent")
     parser.add_argument("--ignore-split-hint", action="store_true", default=False,
                         help="Ignore splitHint column and use proportional train/val/test split per run")
+    parser.add_argument("--feature-set", default="default", choices=["default", "v6"],
+                        help="Feature set: 'default' (legacy) or 'v6' (normalised TAengine features)")
     return parser
 
 
@@ -262,12 +264,16 @@ def add_price_ratios(df: pd.DataFrame) -> pd.DataFrame:
     df["execLow_r"]     = df["executionLow"].fillna(0.0)     / close
     df["execClose_r"]   = df["executionClose"].fillna(0.0)   / close
     df["execPrice_r"]   = df["executionPrice"].fillna(0.0)   / close
-    df["entryPrice_r"]  = df["entryPrice"].fillna(0.0)       / close
+    if "entryPrice" in df.columns:
+        df["entryPrice_r"] = df["entryPrice"].fillna(0.0) / close
+        df["entryPrice_r"] = df["entryPrice_r"].fillna(0.0)
+    elif "entryPrice_r" not in df.columns:
+        df["entryPrice_r"] = 0.0
 
     # Fill any remaining NaN from close==0 rows
     for col in ["signalOpen_r", "signalHigh_r", "signalLow_r",
                 "execOpen_r", "execHigh_r", "execLow_r",
-                "execClose_r", "execPrice_r", "entryPrice_r"]:
+                "execClose_r", "execPrice_r"]:
         df[col] = df[col].fillna(0.0)
 
     # RS ratio diverges to 10^14 when avgLoss → 0; clip to RSI-equivalent range
@@ -409,7 +415,13 @@ def main() -> None:
     print("Computing price ratios (normalise OHLC to signalClose)...")
     df = add_price_ratios(df)
     print("Preparing numeric/categorical features...")
-    df, feature_columns, mappings = prepare_features(df, DEFAULT_NUMERIC_FEATURES, DEFAULT_CATEGORICAL_FEATURES)
+    if args.feature_set == "v6":
+        numeric_features     = V6_NUMERIC_FEATURES
+        categorical_features = V6_CATEGORICAL_FEATURES
+    else:
+        numeric_features     = DEFAULT_NUMERIC_FEATURES
+        categorical_features = DEFAULT_CATEGORICAL_FEATURES
+    df, feature_columns, mappings = prepare_features(df, numeric_features, categorical_features)
     validate_feature_columns(df, feature_columns)
 
     header = build_header(args.sequence_length, feature_columns)
