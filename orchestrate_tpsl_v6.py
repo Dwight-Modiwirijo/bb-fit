@@ -308,7 +308,7 @@ def main() -> None:
 
     log("=" * 60)
     log("Orchestrator tpsl_v6 started")
-    log(f"input_size={INPUT_SIZE}  DoD: long_prec >= {DOD_LONG_PREC:.0%}  AND  short_prec >= {DOD_SHORT_PREC:.0%}")
+    log(f"DoD: long_prec >= {DOD_LONG_PREC:.0%}  AND  short_prec >= {DOD_SHORT_PREC:.0%}")
     log(f"Max rounds: {MAX_ROUNDS}  |  Epochs per round: {EPOCHS_PER_ROUND}")
     log("=" * 60)
 
