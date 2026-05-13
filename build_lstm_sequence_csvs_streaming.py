@@ -104,6 +104,27 @@ V6_CATEGORICAL_FEATURES = [
     "interval",
 ]
 
+# v7: v6 features + is_valid_signal + bb_tweak + probe features (36 total per step)
+V7_NUMERIC_FEATURES = [
+    "canonicalFee", "intervalMinutes", "observedIntervalMinutes",
+    "signalOpen_r", "signalHigh_r", "signalLow_r",
+    "execOpen_r", "execHigh_r", "execLow_r", "execClose_r", "execPrice_r",
+    "entryPrice_r", "tradeActionRaw", "tradeSide", "lastTrade", "inPosition",
+    "sma_r", "ema_r", "upper_band_r", "lower_band_r", "deviation_r",
+    "band_width", "band_width_delta", "rsi_norm", "stoch_rsi", "bb_position",
+    "bars_since_entry_norm", "bars_since_last_trade_norm", "unrealized_pnl_r",
+    "is_valid_signal_int",    # 0/1: bot considers this candle for trading
+    "bb_tweak_buy",           # BB buy multiplier flag (0/1)
+    "bb_tweak_sell",          # BB sell multiplier flag (0/1)
+    "probe_buy_count_norm",   # tanh(count/10)
+    "probe_sell_count_norm",  # tanh(count/10)
+    "probe_growth_norm",      # tanh(growth_per_month/5)
+]
+
+V7_CATEGORICAL_FEATURES = [
+    "interval",
+]
+
 DEFAULT_CATEGORICAL_FEATURES = [
     "runGroup",
     "sourceFile",
@@ -141,8 +162,8 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--test-ratio", type=float, default=0.15, help="Test split ratio when splitHint is absent")
     parser.add_argument("--ignore-split-hint", action="store_true", default=False,
                         help="Ignore splitHint column and use proportional train/val/test split per run")
-    parser.add_argument("--feature-set", default="default", choices=["default", "v6"],
-                        help="Feature set: 'default' (legacy) or 'v6' (normalised TAengine features)")
+    parser.add_argument("--feature-set", default="default", choices=["default", "v6", "v7"],
+                        help="Feature set: 'default' (legacy), 'v6' (normalised TAengine), or 'v7' (v6 + probe features)")
     return parser
 
 
@@ -415,7 +436,10 @@ def main() -> None:
     print("Computing price ratios (normalise OHLC to signalClose)...")
     df = add_price_ratios(df)
     print("Preparing numeric/categorical features...")
-    if args.feature_set == "v6":
+    if args.feature_set == "v7":
+        numeric_features     = V7_NUMERIC_FEATURES
+        categorical_features = V7_CATEGORICAL_FEATURES
+    elif args.feature_set == "v6":
         numeric_features     = V6_NUMERIC_FEATURES
         categorical_features = V6_CATEGORICAL_FEATURES
     else:
