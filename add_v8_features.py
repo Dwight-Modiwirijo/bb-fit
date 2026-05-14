@@ -1,21 +1,17 @@
 """
-add_v7_features.py — filter lstm_merged_v7_raw.csv and add normalised
-TAengine + probe feature columns for v7 LSTM training.
+add_v8_features.py — filter lstm_merged_v7_raw.csv and add normalised features for v8.
 
-Input:  lstm_merged_v7_raw.csv  (output of parse_testlog_to_csv.py on 14-year JSONL)
-Output: lstm_merged_v7.csv
+v8 vs v7:
+  - Keeps force_hold_training_row=True rows in output (for sequence context).
+    The sequence builder filters them from *targets* via is_valid_signal_int=0.
+  - Same 36 features as v7 (kelly/kelly_fraction_used were never in the feature set).
+  - Preserves temporal continuity: no gaps from dropped rows in sequence windows.
 
-v7 adds over v6:
-  is_valid_signal_int   — 0/1: bot considers this candle for trading
-  bb_tweak_buy          — BB buy multiplier flag (0/1, pass-through)
-  bb_tweak_sell         — BB sell multiplier flag (0/1, pass-through)
-  probe_buy_count_norm  — tanh(probe_buy_count / 10)
-  probe_sell_count_norm — tanh(probe_sell_count / 10)
-  probe_growth_norm     — tanh(probe_growth_per_month / 5)
+Input:  lstm_merged_v7_raw.csv
+Output: lstm_merged_v8.csv
 """
 
 import argparse
-import sys
 from pathlib import Path
 
 import numpy as np
@@ -27,7 +23,6 @@ CHUNK_SIZE = 200_000
 def add_features(df: pd.DataFrame) -> pd.DataFrame:
     sc = df["signalClose"].replace(0.0, np.nan)
 
-    # v6 price-ratio features
     df["sma_r"]        = (df["sma"]        / sc).fillna(1.0).clip(0.5, 2.0)
     df["ema_r"]        = (df["ema"]        / sc).fillna(1.0).clip(0.5, 2.0)
     df["upper_band_r"] = (df["upper_band"] / sc).fillna(1.0).clip(0.5, 2.0)
@@ -40,7 +35,6 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
     df["bars_since_last_trade_norm"] = np.tanh(df["bars_since_last_trade"] / 20.0)
     df["unrealized_pnl_r"]          = (df["unrealized_pnl"] / sc.abs()).fillna(0.0).clip(-1.0, 1.0)
 
-    # v7 new features
     df["is_valid_signal_int"]   = df["is_valid_signal"].astype(int) if "is_valid_signal" in df.columns else 0
     df["bb_tweak_buy"]          = df["bb_tweak_buy"].fillna(0.0)   if "bb_tweak_buy"   in df.columns else 0.0
     df["bb_tweak_sell"]         = df["bb_tweak_sell"].fillna(0.0)  if "bb_tweak_sell"  in df.columns else 0.0
@@ -52,9 +46,9 @@ def add_features(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Add v7 normalised features")
+    parser = argparse.ArgumentParser(description="Add v8 normalised features (keeps force_hold rows)")
     parser.add_argument("--input",    default="/home/dwyte/bb-fit/lstm_merged_v7_raw.csv")
-    parser.add_argument("--output",   default="/home/dwyte/bb-fit/lstm_merged_v7.csv")
+    parser.add_argument("--output",   default="/home/dwyte/bb-fit/lstm_merged_v8.csv")
     parser.add_argument("--interval", default="FiveMinutes")
     args = parser.parse_args()
 
@@ -64,8 +58,11 @@ def main() -> None:
     print(f"Input:    {in_path}")
     print(f"Output:   {out_path}")
     print(f"Interval: {args.interval}")
+    print("v8: force_hold rows kept for sequence context (sequence builder filters them as targets)")
 
     total_in = total_out = 0
+    force_hold_count = 0
+    real_count = 0
     first_chunk = True
 
     for chunk in pd.read_csv(in_path, chunksize=CHUNK_SIZE, low_memory=False):
@@ -76,19 +73,18 @@ def main() -> None:
         if chunk.empty:
             continue
 
+        # Warmup filter: indicators are unreliable before ~30-50 candles of TAengine warmup
         chunk = chunk[(chunk["sma"] != 0) & (chunk["upper_band"] != 0) & (chunk["rsi"] != 0)]
         if chunk.empty:
             continue
 
-        # Drop artificial Hold rows injected by forceHoldTrainingRows=True.
-        # These have valid indicator values but were not real bot decisions.
-        # is_valid_signal=False is a perfect proxy for force_hold_training_row=True.
+        # Track force_hold vs real rows for diagnostics
         if "force_hold_training_row" in chunk.columns:
-            chunk = chunk[chunk["force_hold_training_row"] != True]
+            force_hold_count += int((chunk["force_hold_training_row"] == True).sum())
+            real_count        += int((chunk["force_hold_training_row"] != True).sum())
         elif "is_valid_signal" in chunk.columns:
-            chunk = chunk[chunk["is_valid_signal"] == True]
-        if chunk.empty:
-            continue
+            force_hold_count += int((chunk["is_valid_signal"] == False).sum())
+            real_count        += int((chunk["is_valid_signal"] == True).sum())
 
         chunk = add_features(chunk)
         total_out += len(chunk)
@@ -100,7 +96,11 @@ def main() -> None:
         if total_in % (CHUNK_SIZE * 5) == 0 or total_in == CHUNK_SIZE:
             print(f"  Processed {total_in:,} in → {total_out:,} out", flush=True)
 
+    pct_force = 100.0 * force_hold_count / total_out if total_out else 0.0
     print(f"\nDone. {total_in:,} rows read → {total_out:,} rows written to {out_path}")
+    print(f"  Real bot decisions (is_valid_signal=True):  {real_count:,} ({100-pct_force:.1f}%)")
+    print(f"  Force-hold rows   (is_valid_signal=False): {force_hold_count:,} ({pct_force:.1f}%)")
+    print(f"  Sequence builder will skip force-hold rows as targets (is_valid_signal_int=0).")
 
 
 if __name__ == "__main__":

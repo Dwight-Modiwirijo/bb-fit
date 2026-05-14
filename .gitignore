@@ -59,10 +59,11 @@ run_tpsl_finetune_03.sh
 copilot.gpt.md
 nan_loss_analyse.md
 
-# Obsolete orchestrators (superseded by v5/v6; v4b kept as best-result reference)
+# Obsolete orchestrators (superseded by v5/v6/v7/v8; v4b kept as best-result reference)
 orchestrate_tpsl_v2.py
 orchestrate_tpsl_v3.py
 orchestrate_tpsl_v4.py
+orchestrate_tpsl_v5.py
 
 # Obsolete run scripts (superseded by v4b/v5/v6)
 run_tpsl_v2_*.sh

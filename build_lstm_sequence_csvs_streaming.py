@@ -125,6 +125,12 @@ V7_CATEGORICAL_FEATURES = [
     "interval",
 ]
 
+# v8: same features as v7; difference is in the sequence builder filter.
+# Input CSV (lstm_merged_v8.csv) keeps force_hold rows for temporal context.
+# Only sequences whose *target* row has is_valid_signal_int=1 are emitted.
+V8_NUMERIC_FEATURES = V7_NUMERIC_FEATURES
+V8_CATEGORICAL_FEATURES = V7_CATEGORICAL_FEATURES
+
 DEFAULT_CATEGORICAL_FEATURES = [
     "runGroup",
     "sourceFile",
@@ -162,8 +168,9 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--test-ratio", type=float, default=0.15, help="Test split ratio when splitHint is absent")
     parser.add_argument("--ignore-split-hint", action="store_true", default=False,
                         help="Ignore splitHint column and use proportional train/val/test split per run")
-    parser.add_argument("--feature-set", default="default", choices=["default", "v6", "v7"],
-                        help="Feature set: 'default' (legacy), 'v6' (normalised TAengine), or 'v7' (v6 + probe features)")
+    parser.add_argument("--feature-set", default="default", choices=["default", "v6", "v7", "v8"],
+                        help="Feature set: 'default' (legacy), 'v6' (normalised TAengine), "
+                             "'v7' (v6 + probe features), or 'v8' (v7 + last-candle valid-signal filter)")
     return parser
 
 
@@ -349,6 +356,7 @@ def stream_segment_rows(
     sequence_length: int,
     feature_columns: List[str],
     writer: csv.writer,
+    filter_last_valid: bool = False,
 ) -> int:
     written = 0
     segment = run_df.iloc[start_idx:end_idx].reset_index(drop=True)
@@ -362,6 +370,11 @@ def stream_segment_rows(
         window_features = segment_features.iloc[end_pos - sequence_length + 1 : end_pos + 1]
         target_row = segment.iloc[end_pos + 1]
         last_row = window.iloc[-1]
+
+        # v8: skip sequences whose target is a force_hold row (is_valid_signal_int=0).
+        # Force-hold rows are kept in the context window for temporal continuity.
+        if filter_last_valid and int(target_row.get("is_valid_signal_int", 1)) != 1:
+            continue
 
         current_equity = float(last_row.get("netEquity", 0.0))
         next_equity = float(target_row.get("netEquity", current_equity))
@@ -395,6 +408,7 @@ def stream_rows_from_existing_split_hints(
     sequence_length: int,
     feature_columns: List[str],
     writers: Dict[str, csv.writer],
+    filter_last_valid: bool = False,
 ) -> Dict[str, int]:
     split_counts = {name: 0 for name in CANONICAL_SPLITS}
     split_series = run_df["splitHint"].fillna("__MISSING__").map(canonicalize_split)
@@ -413,6 +427,7 @@ def stream_rows_from_existing_split_hints(
                 sequence_length=sequence_length,
                 feature_columns=feature_columns,
                 writer=writers[split_name],
+                filter_last_valid=filter_last_valid,
             )
         start = idx
     return split_counts
@@ -436,22 +451,24 @@ def main() -> None:
     print("Computing price ratios (normalise OHLC to signalClose)...")
     df = add_price_ratios(df)
     print("Preparing numeric/categorical features...")
-    if args.feature_set == "v7":
-        numeric_features     = V7_NUMERIC_FEATURES
-        categorical_features = V7_CATEGORICAL_FEATURES
+    if args.feature_set in ("v7", "v8"):
+        numeric_features     = V8_NUMERIC_FEATURES   # v8 reuses v7 features
+        categorical_features = V8_CATEGORICAL_FEATURES
     elif args.feature_set == "v6":
         numeric_features     = V6_NUMERIC_FEATURES
         categorical_features = V6_CATEGORICAL_FEATURES
     else:
         numeric_features     = DEFAULT_NUMERIC_FEATURES
         categorical_features = DEFAULT_CATEGORICAL_FEATURES
+    filter_last_valid = (args.feature_set == "v8")
     df, feature_columns, mappings = prepare_features(df, numeric_features, categorical_features)
     validate_feature_columns(df, feature_columns)
 
     header = build_header(args.sequence_length, feature_columns)
     use_split_hint = "splitHint" in df.columns and df["splitHint"].notna().any() and not args.ignore_split_hint
     run_count = int(df["runId"].nunique())
-    print(f"Rows ready: {len(df):,}; runs: {run_count:,}; features per step: {len(feature_columns)}; splitHint={'yes' if use_split_hint else 'no'}")
+    print(f"Rows ready: {len(df):,}; runs: {run_count:,}; features per step: {len(feature_columns)}; "
+          f"splitHint={'yes' if use_split_hint else 'no'}; filter_last_valid={filter_last_valid}")
 
     paths = {
         "train": output_dir / "lstm_train_sequences.csv",
@@ -483,6 +500,7 @@ def main() -> None:
                     sequence_length=args.sequence_length,
                     feature_columns=feature_columns,
                     writers=writers,
+                    filter_last_valid=filter_last_valid,
                 )
                 for split_name in CANONICAL_SPLITS:
                     stats_entry["windows"][split_name] = counts[split_name]
@@ -503,6 +521,7 @@ def main() -> None:
                         sequence_length=args.sequence_length,
                         feature_columns=feature_columns,
                         writer=writers[split_name],
+                        filter_last_valid=filter_last_valid,
                     )
                     stats_entry["windows"][split_name] = written
                     output_counts[split_name] += written
