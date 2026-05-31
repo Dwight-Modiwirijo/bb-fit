@@ -131,6 +131,15 @@ V7_CATEGORICAL_FEATURES = [
 V8_NUMERIC_FEATURES = V7_NUMERIC_FEATURES
 V8_CATEGORICAL_FEATURES = V7_CATEGORICAL_FEATURES
 
+# scalper: v6 features, target is label_direction (0=Down,1=Flat,2=Up) from future_return_10.
+# Null-future_return rows are already dropped by add_scalper_features.py.
+SCALPER_NUMERIC_FEATURES = V6_NUMERIC_FEATURES
+SCALPER_CATEGORICAL_FEATURES = V6_CATEGORICAL_FEATURES
+SCALPER_TARGETS = [
+    "label_direction",   # 0=Down, 1=Flat, 2=Up  (from future_return_10 ± threshold)
+    "future_return_10",  # raw regression value (kept for analysis)
+]
+
 DEFAULT_CATEGORICAL_FEATURES = [
     "runGroup",
     "sourceFile",
@@ -168,9 +177,10 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--test-ratio", type=float, default=0.15, help="Test split ratio when splitHint is absent")
     parser.add_argument("--ignore-split-hint", action="store_true", default=False,
                         help="Ignore splitHint column and use proportional train/val/test split per run")
-    parser.add_argument("--feature-set", default="default", choices=["default", "v6", "v7", "v8"],
+    parser.add_argument("--feature-set", default="default", choices=["default", "v6", "v7", "v8", "scalper"],
                         help="Feature set: 'default' (legacy), 'v6' (normalised TAengine), "
-                             "'v7' (v6 + probe features), or 'v8' (v7 + last-candle valid-signal filter)")
+                             "'v7' (v6 + probe features), 'v8' (v7 + last-candle valid-signal filter), "
+                             "or 'scalper' (v6 features, future_return_10 as label)")
     return parser
 
 
@@ -332,7 +342,7 @@ def segment_bounds(n: int, train_ratio: float, validation_ratio: float, test_rat
     }
 
 
-def build_header(sequence_length: int, feature_columns: List[str]) -> List[str]:
+def build_header(sequence_length: int, feature_columns: List[str], targets: List[str] = None) -> List[str]:
     header = [
         "runId",
         "split",
@@ -344,7 +354,7 @@ def build_header(sequence_length: int, feature_columns: List[str]) -> List[str]:
     for t in range(sequence_length):
         for feature in feature_columns:
             header.append(f"t{t:03d}_{feature}")
-    header.extend(DEFAULT_TARGETS)
+    header.extend(targets if targets is not None else DEFAULT_TARGETS)
     return header
 
 
@@ -357,6 +367,7 @@ def stream_segment_rows(
     feature_columns: List[str],
     writer: csv.writer,
     filter_last_valid: bool = False,
+    scalper_mode: bool = False,
 ) -> int:
     written = 0
     segment = run_df.iloc[start_idx:end_idx].reset_index(drop=True)
@@ -389,15 +400,22 @@ def stream_segment_rows(
             sequence_length,
         ]
         out_row.extend(window_features.to_numpy().reshape(-1).tolist())
-        out_row.extend([
-            target_row.get("actionTaken", 0),
-            target_row.get("tradeSide", 0),
-            target_row.get("tradeActionRaw", 0.0),
-            target_row.get("lastTrade", 0),
-            next_equity,
-            delta,
-            int(delta > 0.0),
-        ])
+        if scalper_mode:
+            # Target is on last_row (future_return_10 looks N bars ahead from that candle)
+            out_row.extend([
+                int(last_row.get("label_direction", 1)),
+                float(last_row.get("future_return_10", 0.0)),
+            ])
+        else:
+            out_row.extend([
+                target_row.get("actionTaken", 0),
+                target_row.get("tradeSide", 0),
+                target_row.get("tradeActionRaw", 0.0),
+                target_row.get("lastTrade", 0),
+                next_equity,
+                delta,
+                int(delta > 0.0),
+            ])
         writer.writerow(out_row)
         written += 1
     return written
@@ -409,6 +427,7 @@ def stream_rows_from_existing_split_hints(
     feature_columns: List[str],
     writers: Dict[str, csv.writer],
     filter_last_valid: bool = False,
+    scalper_mode: bool = False,
 ) -> Dict[str, int]:
     split_counts = {name: 0 for name in CANONICAL_SPLITS}
     split_series = run_df["splitHint"].fillna("__MISSING__").map(canonicalize_split)
@@ -428,6 +447,7 @@ def stream_rows_from_existing_split_hints(
                 feature_columns=feature_columns,
                 writer=writers[split_name],
                 filter_last_valid=filter_last_valid,
+                scalper_mode=scalper_mode,
             )
         start = idx
     return split_counts
@@ -454,21 +474,29 @@ def main() -> None:
     if args.feature_set in ("v7", "v8"):
         numeric_features     = V8_NUMERIC_FEATURES   # v8 reuses v7 features
         categorical_features = V8_CATEGORICAL_FEATURES
+        active_targets       = DEFAULT_TARGETS
     elif args.feature_set == "v6":
         numeric_features     = V6_NUMERIC_FEATURES
         categorical_features = V6_CATEGORICAL_FEATURES
+        active_targets       = DEFAULT_TARGETS
+    elif args.feature_set == "scalper":
+        numeric_features     = SCALPER_NUMERIC_FEATURES
+        categorical_features = SCALPER_CATEGORICAL_FEATURES
+        active_targets       = SCALPER_TARGETS
     else:
         numeric_features     = DEFAULT_NUMERIC_FEATURES
         categorical_features = DEFAULT_CATEGORICAL_FEATURES
+        active_targets       = DEFAULT_TARGETS
     filter_last_valid = (args.feature_set == "v8")
+    scalper_mode      = (args.feature_set == "scalper")
     df, feature_columns, mappings = prepare_features(df, numeric_features, categorical_features)
     validate_feature_columns(df, feature_columns)
 
-    header = build_header(args.sequence_length, feature_columns)
+    header = build_header(args.sequence_length, feature_columns, targets=active_targets)
     use_split_hint = "splitHint" in df.columns and df["splitHint"].notna().any() and not args.ignore_split_hint
     run_count = int(df["runId"].nunique())
     print(f"Rows ready: {len(df):,}; runs: {run_count:,}; features per step: {len(feature_columns)}; "
-          f"splitHint={'yes' if use_split_hint else 'no'}; filter_last_valid={filter_last_valid}")
+          f"splitHint={'yes' if use_split_hint else 'no'}; filter_last_valid={filter_last_valid}; scalper_mode={scalper_mode}")
 
     paths = {
         "train": output_dir / "lstm_train_sequences.csv",
@@ -501,6 +529,7 @@ def main() -> None:
                     feature_columns=feature_columns,
                     writers=writers,
                     filter_last_valid=filter_last_valid,
+                    scalper_mode=scalper_mode,
                 )
                 for split_name in CANONICAL_SPLITS:
                     stats_entry["windows"][split_name] = counts[split_name]
@@ -522,6 +551,7 @@ def main() -> None:
                         feature_columns=feature_columns,
                         writer=writers[split_name],
                         filter_last_valid=filter_last_valid,
+                        scalper_mode=scalper_mode,
                     )
                     stats_entry["windows"][split_name] = written
                     output_counts[split_name] += written

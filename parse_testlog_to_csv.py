@@ -60,7 +60,7 @@ def extract_run_metadata(run_id: str, source_file: str) -> dict:
 
     interval_minutes = {
         "OneMinute": 1, "FiveMinutes": 5, "FifteenMinutes": 15,
-        "ThirtyMinutes": 30, "OneHour": 60,
+        "ThirtyMinutes": 30, "OneHour": 60, "TwoHunderdAndFourty": 240,
     }.get(interval_label, 0)
 
     run_group = f"{interval_label}_{interval_minutes}m_fee_{fee}"

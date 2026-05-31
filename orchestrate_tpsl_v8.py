@@ -198,7 +198,7 @@ def run_evaluate(round_num: int, ckpt_ctr: str) -> Tuple[dict, Path]:
         "--test-csv",       f"{SEQ_DIR}/lstm_test_sequences.csv",
         "--checkpoint", ckpt_ctr,
         "--hidden-size", "512", "--num-layers", "3", "--dropout", "0.1",
-        "--batch-size", "128",
+        "--batch-size", "32",
         "--output-json", json_ctr,
     ]
     rc = run_docker(cmd, log_path, cpu_only=True)

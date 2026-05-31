@@ -39,8 +39,8 @@ echo \"Step 1 done.\"
 
 echo \"\"
 echo \"=== Step 2: Rule baseline (diagnostic — run before training) ===\"
-$VENV_PYTHON /home/dwyte/Github/bb-fit/rule_baseline_v8.py \
-  --input /home/dwyte/bb-fit/lstm_merged_v8.csv \
+$DOCKER python /workspace/scripts/rule_baseline_v8.py \
+  --input /workspace/data/lstm_merged_v8.csv \
   2>&1 | tee /home/dwyte/bb-fit/v8_rule_baseline.log
 echo \"Step 2 done. See: /home/dwyte/bb-fit/v8_rule_baseline.log\"
 

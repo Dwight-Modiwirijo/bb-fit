@@ -32,6 +32,9 @@ TARGET_COLUMNS = [
     "target_netEquity",
     "target_netEquityDelta",
     "target_isNetEquityUp",
+    # scalper pipeline targets
+    "label_direction",
+    "future_return_10",
 ]
 
 
@@ -96,6 +99,7 @@ class SequenceCsvIterableDataset(IterableDataset):
         per_step_features: int,
         norm_mean: Optional[torch.Tensor] = None,
         norm_std: Optional[torch.Tensor] = None,
+        label_column: str = "target_actionTaken",
     ) -> None:
         super().__init__()
         self.spec = spec
@@ -104,6 +108,7 @@ class SequenceCsvIterableDataset(IterableDataset):
         self.per_step_features = per_step_features
         self.norm_mean = norm_mean  # shape [n_flat_features]
         self.norm_std = norm_std
+        self.label_column = label_column
 
     def _parse_row(self, row: Dict[str, str]) -> Tuple[torch.Tensor, Dict[str, torch.Tensor]]:
         features = [float(row[c]) for c in self.feature_columns]
@@ -112,9 +117,9 @@ class SequenceCsvIterableDataset(IterableDataset):
             x = (x - self.norm_mean) / self.norm_std
         x = x.view(self.sequence_length, self.per_step_features)
 
-        action_taken = int(float(row["target_actionTaken"]))
-        trade_side = int(float(row["target_tradeSide"]))
-        net_equity_delta = float(row["target_netEquityDelta"])
+        action_taken = int(float(row[self.label_column]))
+        trade_side = int(float(row.get("target_tradeSide", 0)))
+        net_equity_delta = float(row.get("target_netEquityDelta", 0.0))
 
         y = {
             "action_taken": torch.tensor(action_taken, dtype=torch.long),
@@ -202,6 +207,7 @@ def build_dataloader(
     num_workers: int,
     norm_mean: Optional[torch.Tensor] = None,
     norm_std: Optional[torch.Tensor] = None,
+    label_column: str = "target_actionTaken",
 ) -> DataLoader:
     dataset = SequenceCsvIterableDataset(
         spec=spec,
@@ -210,6 +216,7 @@ def build_dataloader(
         per_step_features=per_step_features,
         norm_mean=norm_mean,
         norm_std=norm_std,
+        label_column=label_column,
     )
 
     return DataLoader(
@@ -347,6 +354,9 @@ def parse_args() -> argparse.Namespace:
                         help="LR scheduler: plateau=ReduceLROnPlateau, cosine=CosineAnnealingLR, none.")
     parser.add_argument("--scheduler-patience", type=int, default=2,
                         help="Epochs without improvement before plateau scheduler reduces LR.")
+    parser.add_argument("--label-column", default="target_actionTaken",
+                        help="CSV column to use as classification label (default: target_actionTaken). "
+                             "Use 'label_direction' for scalper pipeline.")
     return parser.parse_args()
 
 
@@ -365,12 +375,15 @@ def main() -> None:
     _, feature_columns = discover_columns(train_csv)
     sequence_length, per_step_features = infer_sequence_length(feature_columns)
 
-    action_classes = compute_class_count(train_csv, "target_actionTaken", args.train_limit_rows)
-    trade_side_classes = compute_class_count(train_csv, "target_tradeSide", args.train_limit_rows)
+    label_column = args.label_column
+    action_classes = compute_class_count(train_csv, label_column, args.train_limit_rows)
+    trade_side_classes = compute_class_count(train_csv, "target_tradeSide", args.train_limit_rows) \
+        if "target_tradeSide" in open(train_csv).readline() else 2
 
     print(
         f"Discovered sequence_length={sequence_length}, per_step_features={per_step_features}, "
-        f"action_classes={action_classes}, trade_side_classes={trade_side_classes}"
+        f"action_classes={action_classes}, trade_side_classes={trade_side_classes}, "
+        f"label_column={label_column}"
     )
 
     norm_mean = norm_std = None
@@ -386,17 +399,17 @@ def main() -> None:
     train_loader = build_dataloader(
         DatasetSpec(train_csv, args.train_limit_rows),
         feature_columns, sequence_length, per_step_features,
-        args.batch_size, args.num_workers, norm_mean, norm_std,
+        args.batch_size, args.num_workers, norm_mean, norm_std, label_column,
     )
     validation_loader = build_dataloader(
         DatasetSpec(validation_csv, args.validation_limit_rows),
         feature_columns, sequence_length, per_step_features,
-        args.batch_size, args.num_workers, norm_mean, norm_std,
+        args.batch_size, args.num_workers, norm_mean, norm_std, label_column,
     )
     test_loader = build_dataloader(
         DatasetSpec(test_csv, args.test_limit_rows),
         feature_columns, sequence_length, per_step_features,
-        args.batch_size, args.num_workers, norm_mean, norm_std,
+        args.batch_size, args.num_workers, norm_mean, norm_std, label_column,
     )
 
     model = MultiHeadLstm(
